@@ -16,8 +16,8 @@ from pykorail.exceptions import (
     StationNotFoundError,
 )
 from pykorail.models import AdultPassenger, Card, ChildPassenger, Reservation, Seat, Ticket
-from pykorail.resources.trains import KST, PAST_TOLERANCE, to_kst
-from tests.conftest import Reply
+from pykorail.resources.trains import KST, MAX_PAGES, PAST_TOLERANCE, to_kst
+from tests.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
     MANY_RESERVATION_IDS,
@@ -31,6 +31,7 @@ from tests.payloads import (
     STATION_PAYLOAD,
     TICKET_LIST_PAYLOAD,
     TICKET_SEAT_PAYLOAD,
+    TRAIN_INFO,
 )
 
 #: 예약이 여럿인 목록에 좌석 상세를 얹은 라우트. 응답 자체는 payloads 에 있습니다.
@@ -50,6 +51,39 @@ SEARCHABLE_ROUTES = {
 #: 전송값을 정확히 단언할 수 있습니다.
 FUTURE = (datetime.now(KST) + timedelta(days=30)).replace(hour=9, minute=30, second=0, microsecond=0)
 FUTURE_UTC = (datetime.now(UTC) + timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+
+def train_departing(train_no: str, departs: datetime, **overrides: str) -> dict[str, str]:
+    """``departs`` 에 떠나는 열차 한 편의 응답. 필드 이름은 ``TRAIN_INFO`` 그대로입니다."""
+    return {
+        **TRAIN_INFO,
+        "h_trn_no": train_no,
+        "h_dpt_dt": departs.strftime("%Y%m%d"),
+        "h_dpt_tm": departs.strftime("%H%M%S"),
+        "h_run_dt": departs.strftime("%Y%m%d"),
+        **overrides,
+    }
+
+
+def search_page(*trains: dict[str, str]) -> dict[str, object]:
+    return {"strResult": "SUCC", "trn_infos": {"trn_info": list(trains)}}
+
+
+#: 쪽 이어 받기용 열차들. ``FUTURE``(09:30) 이후 한 시간 간격으로 떠납니다.
+TRAIN_1000 = train_departing("101", FUTURE.replace(hour=10, minute=0))
+TRAIN_1100 = train_departing("103", FUTURE.replace(hour=11, minute=0))
+TRAIN_1200 = train_departing("105", FUTURE.replace(hour=12, minute=0))
+
+#: 첫 쪽과, 그 마지막 열차의 출발 시각부터 다시 조회했을 때의 다음 쪽. 서버는 그 시각의
+#: 열차를 다시 싣고 시작하므로 103 이 두 쪽에 모두 나옵니다.
+FIRST_PAGE = search_page(TRAIN_1000, TRAIN_1100)
+SECOND_PAGE = search_page(TRAIN_1100, TRAIN_1200)
+#: 더 받을 것이 없을 때: 마지막 열차만 다시 내려옵니다.
+NOTHING_NEW_PAGE = search_page(TRAIN_1100)
+
+
+def paged_routes(*pages: object) -> dict[str, object]:
+    return {"stationdata": STATION_PAYLOAD, "search_schedule": Replies(*pages)}
 
 
 class TestToKst:
@@ -312,6 +346,129 @@ class TestPastDepartureGuard:
         # when & then
         with pytest.raises(PastDepartureError):
             client.trains.search("서울", "부산", depart_after=utc_past)
+
+
+class TestTrainSearchPages:
+    """조회 결과 이어 받기 — 마지막 열차의 출발 시각부터 다시 조회합니다."""
+
+    def test_single_page_by_default(self, make_korail) -> None:
+        # given
+        client, session = make_korail(paged_routes(FIRST_PAGE, SECOND_PAGE))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+        assert len(session.all_kwargs_for("search_schedule")) == 1, "기본값은 요청 한 번이어야 합니다"
+
+    def test_joins_the_next_page_without_repeating_the_boundary_train(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(paged_routes(FIRST_PAGE, SECOND_PAGE))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=2)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103", "105"]
+
+    def test_next_page_starts_at_the_last_departure(self, make_korail) -> None:
+        # given
+        client, session = make_korail(paged_routes(FIRST_PAGE, SECOND_PAGE))
+
+        # when
+        client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=2)
+
+        # then
+        second = session.all_kwargs_for("search_schedule")[1]["params"]
+        assert (second["txtGoAbrdDt"], second["txtGoHour"]) == (FUTURE.strftime("%Y%m%d"), "110000")
+
+    def test_next_page_changes_nothing_but_the_departure_moment(self, make_korail) -> None:
+        """다음 쪽은 같은 요청입니다 — 다른 필드가 달라지면 서버는 다른 조회로 봅니다."""
+        # given
+        client, session = make_korail(paged_routes(FIRST_PAGE, SECOND_PAGE))
+
+        # when
+        client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=2)
+
+        # then
+        first, second = (call["params"] for call in session.all_kwargs_for("search_schedule"))
+        changed = {key for key in first if first[key] != second[key]}
+        assert changed == {"txtGoHour"}
+        assert set(first) == set(second)
+
+    def test_stops_early_when_a_page_brings_nothing_new(self, make_korail) -> None:
+        # given
+        client, session = make_korail(paged_routes(FIRST_PAGE, NOTHING_NEW_PAGE))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=5)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+        assert len(session.all_kwargs_for("search_schedule")) == 2, "새 열차가 없으면 상한 전에 멈춰야 합니다"
+
+    def test_keeps_earlier_pages_when_a_later_page_has_no_results(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(paged_routes(FIRST_PAGE, NO_RESULTS))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=3)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+
+    def test_no_results_on_the_first_page_still_raises(self, make_korail) -> None:
+        # given
+        client, session = make_korail(paged_routes(NO_RESULTS, SECOND_PAGE))
+
+        # when & then
+        with pytest.raises(NoResultsError):
+            client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=3)
+        assert len(session.all_kwargs_for("search_schedule")) == 1, "첫 쪽이 비면 더 조회하지 않습니다"
+
+    def test_stops_when_the_last_departure_is_unreadable(self, make_korail) -> None:
+        """출발 시각이 비어 오면 어디서부터 이어 받을지 알 수 없습니다."""
+        # given
+        timeless = train_departing("103", FUTURE, h_dpt_tm="")
+        client, session = make_korail(paged_routes(search_page(TRAIN_1000, timeless), SECOND_PAGE))
+
+        # when
+        client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=3)
+
+        # then
+        assert len(session.all_kwargs_for("search_schedule")) == 1
+
+    def test_seat_filter_applies_to_every_page(self, make_korail) -> None:
+        # given
+        sold_out = train_departing("105", FUTURE.replace(hour=12, minute=0), h_spe_rsv_cd="00", h_gen_rsv_cd="00")
+        client, _ = make_korail(paged_routes(FIRST_PAGE, search_page(TRAIN_1100, sold_out)))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=2)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+
+    def test_the_upper_limit_itself_is_accepted(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(paged_routes(FIRST_PAGE, NOTHING_NEW_PAGE))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=MAX_PAGES)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+
+    @pytest.mark.parametrize("max_pages", [0, -1, MAX_PAGES + 1, 1000])
+    def test_rejects_a_page_limit_out_of_range_before_any_request(self, make_korail, max_pages: int) -> None:
+        # given
+        client, session = make_korail(paged_routes(FIRST_PAGE))
+
+        # when & then
+        with pytest.raises(ValueError, match="max_pages"):
+            client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=max_pages)
+        assert session.calls == []
 
 
 class TestTrainSearch:

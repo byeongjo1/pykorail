@@ -34,6 +34,23 @@ class Reply:
     body: Any
 
 
+class Replies:
+    """요청마다 다음 응답을 차례로 돌려주는 라우트. 다 쓰면 마지막 응답을 되풀이합니다.
+
+    같은 엔드포인트를 여러 번 부르면서 응답이 달라져야 하는 흐름(조회 결과 이어 받기)에
+    씁니다. 라우트에 응답 하나만 두면 몇 번을 불러도 같은 응답입니다.
+    """
+
+    def __init__(self, *payloads: Any) -> None:
+        self._payloads = payloads
+        self._served = 0
+
+    def take(self) -> Any:
+        payload = self._payloads[min(self._served, len(self._payloads) - 1)]
+        self._served += 1
+        return payload
+
+
 class FakeResponse:
     def __init__(self, payload: Any) -> None:
         reply = payload if isinstance(payload, Reply) else Reply(200, payload)
@@ -54,7 +71,7 @@ class FakeSession:
         self.calls.append((method, url, kwargs))
         for endpoint, payload in self.routes.items():
             if url == API_ENDPOINTS[endpoint]:
-                return FakeResponse(payload)
+                return FakeResponse(payload.take() if isinstance(payload, Replies) else payload)
         raise AssertionError(f"예상하지 못한 요청: {url}")
 
     def get(self, url: str, **kwargs: Any) -> FakeResponse:

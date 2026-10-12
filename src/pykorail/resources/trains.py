@@ -34,6 +34,11 @@ KST = timezone(timedelta(hours=KST_OFFSET_HOURS))
 #: 조회할 이유가 없습니다.
 PAST_TOLERANCE = timedelta(minutes=1)
 
+#: ``max_pages`` 의 상한. 한 쪽이 보통 열 편이라 하루치 시간표를 덮고도 남습니다. 이보다 큰
+#: 값은 오타이거나 과한 자동 요청이라 요청 전에 막습니다 — 쪽마다 요청이 한 번씩 나가고,
+#: 코레일은 과도한 자동 요청에 계정을 제재합니다.
+MAX_PAGES = 20
+
 
 def to_kst(moment: datetime | None) -> datetime:
     """KST 기준 시각으로 정규화합니다.
@@ -67,6 +72,7 @@ class TrainResource(Resource):
         include_no_seats: bool = False,
         include_waiting_list: bool = False,
         include_nearby_stations: bool = False,
+        max_pages: int = 1,
     ) -> list[Train]:
         """열차를 조회합니다.
 
@@ -85,12 +91,19 @@ class TrainResource(Resource):
                 "인접역"). ``dep_name``/``arr_name`` 이 요청한 역과 달라질 수 있습니다.
                 결과가 더해지는 것이 아니라 후보가 넓어지는 것이라 켜면 뒤쪽 직통편이
                 밀려날 수 있어 기본값은 꺼짐입니다 — 자세한 것은 ``docs/reference.md``.
+            max_pages: 이어 받을 쪽 수의 상한. 서버는 요청 한 번에 한 쪽만 줍니다.
+                2 이상이면 마지막 열차의 출발 시각부터 다시 조회해 이어 붙이고, 새
+                열차가 더 나오지 않으면 상한 전에 멈춥니다. 쪽마다 요청이 한 번씩
+                더 나가므로 필요한 만큼만 올리세요. 최대 :data:`MAX_PAGES`.
 
         Raises:
+            ValueError: ``max_pages`` 가 1 보다 작거나 :data:`MAX_PAGES` 보다 큽니다.
             StationNotFoundError: ``dep``/``arr`` 이 역 마스터에 없습니다.
             PastDepartureError: ``depart_after`` 가 이미 지난 시각입니다.
             NoResultsError: 조건에 맞는 열차가 없습니다.
         """
+        if not 1 <= max_pages <= MAX_PAGES:
+            raise ValueError(f"max_pages 는 1 이상 {MAX_PAGES} 이하여야 합니다: {max_pages}")
         if self.validate_stations:
             self._stations.ensure_exist(dep, arr)
 
@@ -98,8 +111,47 @@ class TrainResource(Resource):
         self._ensure_not_past(moment)
         reduced = Passenger.reduce(passengers or [AdultPassenger()])
 
+        # 다음 쪽은 커서가 아니라 **같은 요청의 출발 일시만 바꿔** 받습니다. 앱의 일반 조회
+        # 화면이 그렇게 합니다(코레일+ 7.0.8 TrainScheduleViewModel: 다음 쪽 요청은
+        # txtGoAbrdDt · txtGoHour 두 값만 갈아 끼운 TrainScheduleIn). 그래서 쪽 경계의
+        # 열차가 다시 내려올 수 있어 열차 단위로 중복을 거릅니다.
+        found: dict[tuple[str, ...], Train] = {}
+        cursor = moment
+        for _ in range(max_pages):
+            try:
+                page = self._page(dep, arr, cursor, train_type, reduced, include_nearby_stations)
+            except NoResultsError:
+                if not found:
+                    raise
+                break
+            fresh = {self._identity(train): train for train in page if self._identity(train) not in found}
+            if not fresh:
+                break
+            found.update(fresh)
+            following = self._departure(page[-1])
+            # 시각을 못 읽거나 앞으로 나아가지 못하면 같은 쪽을 다시 받게 되므로 멈춥니다.
+            if following is None or following <= cursor:
+                break
+            cursor = following
+
+        trains = [train for train in found.values() if self._keep(train, include_no_seats, include_waiting_list)]
+        if not trains:
+            raise NoResultsError()
+        return trains
+
+    def _page(
+        self,
+        dep: str,
+        arr: str,
+        moment: datetime,
+        train_type: TrainTypeCode,
+        passengers: Sequence[Passenger],
+        include_nearby_stations: bool,
+    ) -> list[Train]:
+        """``moment`` 부터의 조회 결과 한 쪽. 필터를 거치지 않은 서버 응답 그대로입니다."""
+
         def total(passenger_type: type[Passenger]) -> int:
-            return sum(p.count for p in reduced if isinstance(p, passenger_type))
+            return sum(p.count for p in passengers if isinstance(p, passenger_type))
 
         url = API_ENDPOINTS["search_schedule"]
         headers, _ = self._api.sign(url)
@@ -134,11 +186,20 @@ class TrainResource(Resource):
         payload = self._api.post(url, params=data, headers=headers)
         self._api.check(payload)
 
-        trains = [Train.from_response(info) for info in payload.get("trn_infos", {}).get("trn_info", [])]
-        trains = [train for train in trains if self._keep(train, include_no_seats, include_waiting_list)]
-        if not trains:
-            raise NoResultsError()
-        return trains
+        return [Train.from_response(info) for info in payload.get("trn_infos", {}).get("trn_info", [])]
+
+    @staticmethod
+    def _identity(train: Train) -> tuple[str, ...]:
+        """쪽 사이에서 같은 열차를 알아보는 키. 인근역 조회는 한 열차가 역 쌍만 달리해 여러 번 나옵니다."""
+        return (train.train_no, train.dep_date, train.dep_time, train.dep_code, train.arr_code)
+
+    @staticmethod
+    def _departure(train: Train) -> datetime | None:
+        """열차의 출발 일시(KST). 서버가 날짜·시각을 빼먹었으면 ``None``."""
+        try:
+            return datetime.strptime(train.dep_date + train.dep_time, "%Y%m%d%H%M%S").replace(tzinfo=KST)
+        except ValueError:
+            return None
 
     @staticmethod
     def _ensure_not_past(moment: datetime) -> None:
