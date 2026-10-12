@@ -659,7 +659,10 @@ class TestTransferStations:
         stations = client.trains.transfer_stations("서울", "부산")
 
         # then
-        assert [(s.code, s.name, s.english_name) for s in stations] == [("0015", "대전", "Daejeon")]
+        assert [(s.code, s.name, s.english_name) for s in stations] == [
+            ("0015", "대전", "Daejeon"),
+            ("0001", "서울", ""),
+        ]
 
     def test_sends_exact_form_fields(self, korail) -> None:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""

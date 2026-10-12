@@ -692,14 +692,33 @@ class TestTransfer:
 class TestParseTransfers:
     def test_groups_rows_by_itinerary_number_in_response_order(self) -> None:
         # given
-        later_first = {**FIRST_LEG_INFO, "h_trn_no": "103", "h_trn_seq": "2"}
-        later_second = {**SECOND_LEG_INFO, "h_trn_no": "1203", "h_trn_seq": "2"}
+        later_first = {**FIRST_LEG_INFO, "h_trn_no": "103", "h_trn_seq": "001"}
+        later_second = {**SECOND_LEG_INFO, "h_trn_no": "1203", "h_trn_seq": "001"}
 
         # when
         transfers = parse_transfers([FIRST_LEG_INFO, later_first, SECOND_LEG_INFO, later_second])
 
         # then
         assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201"), ("103", "1203")]
+
+    def test_legs_follow_the_servers_riding_order_not_the_row_order(self) -> None:
+        """타는 순서는 서버가 붙인 번호입니다. 줄이 뒤바뀌어 와도 첫 구간이 먼저여야 합니다."""
+        # when
+        transfers = parse_transfers([SECOND_LEG_INFO, FIRST_LEG_INFO])
+
+        # then
+        assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201")]
+
+    def test_rows_without_a_riding_order_keep_the_row_order(self) -> None:
+        # given
+        first = {key: value for key, value in FIRST_LEG_INFO.items() if key != "h_chg_trn_seq"}
+        second = {key: value for key, value in SECOND_LEG_INFO.items() if key != "h_chg_trn_seq"}
+
+        # when
+        transfers = parse_transfers([first, second])
+
+        # then
+        assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201")]
 
     def test_no_rows_is_no_itineraries(self) -> None:
         # when

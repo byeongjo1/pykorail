@@ -190,7 +190,8 @@ print([station.name for station in korail.trains.transfer_stations("강릉", "�
 
 > [!NOTE]
 > 응답에서 짝이 분명한 두 구간만 여정으로 돌려줍니다. 무엇과 짝인지 알 수 없는 열차는
-> 넘겨짚어 잇지 않고 버립니다.
+> 넘겨짚어 잇지 않고 버립니다. `TransferStation.english_name` 은 서버가 빼고 줄 때가 있어
+> 빈 문자열일 수 있습니다.
 
 #### 호차 · 좌석 조회
 

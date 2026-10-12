@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pykorail.models.parsing import text
+from pykorail.models.parsing import integer, text
 from pykorail.models.schedule import Train
 
 if TYPE_CHECKING:
@@ -67,7 +67,8 @@ def parse_transfers(rows: Sequence[dict[str, Any]]) -> list[Transfer]:
     """환승 조회의 열차 행들을 여정 단위로 묶습니다.
 
     서버는 여정을 중첩하지 않고 열차 행을 한 줄로 늘어놓은 채, 같은 여정의 행에 같은
-    ``h_trn_seq`` 를 붙여 줍니다. 그 값이 같은 행을 응답에 나온 순서대로 묶습니다.
+    ``h_trn_seq`` 를(``"000"``, ``"001"`` …), 여정 안의 타는 순서에 ``h_chg_trn_seq``
+    를(``"1"``, ``"2"``) 붙여 줍니다. 여정 번호가 같은 행을 묶고 타는 순서대로 놓습니다.
 
     **둘로 묶이지 않는 것은 여정으로 만들지 않습니다** — 번호가 비어 있는 행, 한 줄만
     있는 번호, 셋 이상인 번호. 무엇과 짝인지 알 수 없는 행을 넘겨짚어 이으면 실제로는
@@ -78,4 +79,11 @@ def parse_transfers(rows: Sequence[dict[str, Any]]) -> list[Transfer]:
         sequence = text(row, "h_trn_seq")
         if sequence:
             groups.setdefault(sequence, []).append(row)
-    return [Transfer.from_response(group[0], group[1]) for group in groups.values() if len(group) == 2]
+    # 타는 순서는 응답의 줄 순서가 아니라 서버가 붙인 번호를 따릅니다. 번호가 없으면 0 으로
+    # 읽혀 줄 순서가 그대로 남습니다 (sorted 는 안정 정렬입니다).
+    pairs = [sorted(group, key=_leg_order) for group in groups.values() if len(group) == 2]
+    return [Transfer.from_response(first, second) for first, second in pairs]
+
+
+def _leg_order(row: dict[str, Any]) -> int:
+    return integer(row, "h_chg_trn_seq")
