@@ -15,7 +15,7 @@ from pykorail.exceptions import (
     PastDepartureError,
     StationNotFoundError,
 )
-from pykorail.models import AdultPassenger, Card, ChildPassenger, Reservation, Seat, Ticket
+from pykorail.models import AdultPassenger, Card, ChildPassenger, Reservation, Seat, Ticket, Transfer
 from pykorail.options import SeatClass
 from pykorail.resources.base import without_blanks
 from pykorail.resources.trains import KST, MAX_PAGES, PAST_TOLERANCE, to_kst
@@ -23,6 +23,7 @@ from tests.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
     CAR_INFO,
+    FARE_PAYLOAD,
     FIRST_LEG_INFO,
     MANY_RESERVATION_IDS,
     MANY_RESERVATIONS_PAYLOAD,
@@ -856,6 +857,196 @@ class TestTransferSearch:
         with pytest.raises(PastDepartureError):
             client.trains.search_transfers("서울", "부산", depart_after=long_gone)
         assert API_ENDPOINTS["search_schedule"] not in session.urls()
+
+
+#: 운임 조회까지 돌릴 수 있는 라우트. 조회 결과에 좌석 속성이 들어 있습니다.
+FARE_ROUTES = {"stationdata": STATION_PAYLOAD, "search_schedule": SEATABLE_SEARCH_PAYLOAD, "fare": FARE_PAYLOAD}
+
+#: 앱이 운임 조회에 싣는 필드 전체, 싣는 순서대로 (PrcFareIn 을 펼친 뒤 열차별 여덟 칸을 넣습니다).
+FARE_FORM_FIELDS = [
+    "Device",
+    "Version",
+    "AppVersion",
+    "Key",
+    "txtMenuId",
+    "chtnDvCd",
+    "trnCnt",
+    "dptRsStnCd",
+    "arvRsStnCd",
+    "runDt",
+    "trnNo",
+    "gdNo",
+    "rqSeatAttCd",
+    "trnGpCd",
+    "stlbTrnClsfCd",
+]
+
+#: 좌석 속성까지 갖춘 환승 여정 (운임 조회에는 구간마다 좌석 속성이 필요합니다).
+FARE_TRANSFER = Transfer.from_response(
+    [{**FIRST_LEG_INFO, "h_seat_att_cd": "015"}, {**SECOND_LEG_INFO, "h_seat_att_cd": "015"}]
+)
+
+
+class TestFares:
+    """예매 전 운임 — ``trn.prcFare.do``."""
+
+    def test_lists_the_fares_of_a_train(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        fares = client.trains.fares(train)
+
+        # then
+        assert [(fare.seat_class_name, fare.price, fare.charge, fare.total) for fare in fares] == [
+            ("일반실", 59800, 0, 59800),
+            ("특실", 59800, 23900, 83700),
+        ]
+
+    def test_sends_exact_form_fields_in_the_apps_order(self, make_korail) -> None:
+        """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        client.trains.fares(train)
+
+        # then
+        assert list(session.kwargs_for("fare")["data"]) == FARE_FORM_FIELDS
+
+    def test_sends_one_train_as_single_values(self, make_korail) -> None:
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        client.trains.fares(train)
+
+        # then
+        data = session.kwargs_for("fare")["data"]
+        sent = {key: data[key] for key in FARE_FORM_FIELDS[4:]}
+        assert sent == {
+            "txtMenuId": "11",
+            "chtnDvCd": "1",
+            "trnCnt": "1",
+            "dptRsStnCd": "0001",
+            "arvRsStnCd": "0020",
+            "runDt": "20260401",
+            "trnNo": "101",
+            "gdNo": "",
+            "rqSeatAttCd": "015",
+            "trnGpCd": "300",
+            "stlbTrnClsfCd": "00",
+        }
+
+    def test_blank_goods_number_is_still_sent(self, make_korail) -> None:
+        """앱은 요청 모델을 펼친 뒤에 열차별 칸을 따로 넣어, 빈 상품번호도 그대로 실립니다."""
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        client.trains.fares(train)
+
+        # then
+        assert session.kwargs_for("fare")["data"]["gdNo"] == ""
+
+    def test_transfer_joins_each_column_with_commas(self, make_korail) -> None:
+        """열차마다 필드를 따로 두지 않고 칸마다 쉼표로 이어 보냅니다."""
+        # given
+        client, session = make_korail(FARE_ROUTES)
+
+        # when
+        client.trains.fares(FARE_TRANSFER)
+
+        # then
+        data = session.kwargs_for("fare")["data"]
+        sent = {
+            key: data[key]
+            for key in ("chtnDvCd", "trnCnt", "dptRsStnCd", "arvRsStnCd", "trnNo", "gdNo", "stlbTrnClsfCd")
+        }
+        assert sent == {
+            "chtnDvCd": "2",
+            "trnCnt": "2",
+            "dptRsStnCd": "0001,0015",
+            "arvRsStnCd": "0015,0020",
+            "trnNo": "101,1201",
+            "gdNo": ",",
+            "stlbTrnClsfCd": "00,02",
+        }
+
+    def test_is_signed_but_carries_no_sid(self, make_korail) -> None:
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        client.trains.fares(train)
+
+        # then
+        kwargs = session.kwargs_for("fare")
+        assert "x-dynapath-m-token" in kwargs["headers"]
+        assert "Sid" not in kwargs["data"]
+
+    def test_goes_in_the_form_body_not_the_query(self, make_korail) -> None:
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        client.trains.fares(train)
+
+        # then
+        assert "params" not in session.kwargs_for("fare")
+
+    def test_something_that_is_not_a_journey_is_rejected_before_any_request(self, korail) -> None:
+        """예약을 넘기는 실수가 속성 오류로 드러나면 원인을 알기 어렵습니다."""
+        # given
+        client, session = korail
+        reservation = client.reservations.all()[0]
+
+        # when & then
+        with pytest.raises(TypeError, match="Reservation"):
+            client.trains.fares(reservation)
+        assert API_ENDPOINTS["fare"] not in session.urls()
+
+    def test_train_without_the_needed_values_is_rejected_before_any_request(self, korail) -> None:
+        """빈 값을 이어 붙이면 칸 수가 맞지 않는 요청이 됩니다. 넘겨짚지 않고 막습니다."""
+        # given
+        client, session = korail
+        train = client.trains.search("서울", "부산")[0]
+
+        # when & then
+        with pytest.raises(ValueError, match="rqSeatAttCd"):
+            client.trains.fares(train)
+        assert API_ENDPOINTS["fare"] not in session.urls()
+
+    @pytest.mark.parametrize(
+        "body",
+        [{"strResult": "SUCC"}, {"strResult": "SUCC", "prcList": None}, {"strResult": "SUCC", "prcList": []}],
+        ids=["absent", "null", "empty"],
+    )
+    def test_no_fares_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({**FARE_ROUTES, "fare": body})
+        train = client.trains.search("서울", "부산")[0]
+
+        # when
+        fares = client.trains.fares(train)
+
+        # then
+        assert fares == []
+
+    def test_server_refusal_becomes_an_exception(self, make_korail) -> None:
+        # given
+        client, _ = make_korail({**FARE_ROUTES, "fare": {"strResult": "FAIL", "h_msg_cd": "P058"}})
+        train = client.trains.search("서울", "부산")[0]
+
+        # when & then
+        with pytest.raises(NeedToLoginError):
+            client.trains.fares(train)
 
 
 class TestSeatCars:

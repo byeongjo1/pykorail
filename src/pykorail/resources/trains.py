@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from pykorail.constants import API_ENDPOINTS, APP_VERSION, DEVICE, KST_OFFSET_HOURS
 from pykorail.exceptions import NoResultsError, PastDepartureError
 from pykorail.models.car import Car, CarSeat
+from pykorail.models.fare import Fare
 from pykorail.models.parsing import records
 from pykorail.models.passenger import (
     AdultPassenger,
@@ -284,6 +285,64 @@ class TrainResource(Resource):
         if not transfers:
             raise NoResultsError()
         return transfers
+
+    def fares(self, journey: Train | Transfer) -> list[Fare]:
+        """예약하기 전에 운임을 조회합니다. 로그인하지 않아도 됩니다.
+
+        열차 한 편이나 환승 여정을 넘깁니다. **기준 운임**이라 할인은 반영되지 않습니다 —
+        실제로 낼 금액은 예약한 뒤 ``Reservation.price`` 에 있습니다.
+
+        요청 필드는 코레일+ 7.0.8 의 ``PrcFareIn`` · ``PrcFareInItem`` 에서 확인했습니다.
+        열차별 값은 열차마다 필드를 따로 두지 않고 **칸마다 쉼표로 이어** 보냅니다.
+
+        Raises:
+            TypeError: 열차도 환승 여정도 아닌 것을 넘겼습니다.
+            ValueError: 열차에 운임 조회에 필요한 값이 없습니다. :meth:`search` ·
+                :meth:`search_transfers` 가 돌려준 열차를 넘기세요.
+        """
+        if not isinstance(journey, (Train, Transfer)):
+            # 예약(Reservation)처럼 이름이 비슷한 것을 넘기면 속성 오류로는 원인을 알기 어렵습니다.
+            raise TypeError(f"Train 이나 Transfer 를 넘기세요: {type(journey).__name__}")
+        legs = journey.legs if isinstance(journey, Transfer) else (journey,)
+        columns = {
+            "dptRsStnCd": [leg.dep_code for leg in legs],
+            "arvRsStnCd": [leg.arr_code for leg in legs],
+            "runDt": [leg.run_date for leg in legs],
+            "trnNo": [leg.train_no for leg in legs],
+            "rqSeatAttCd": [leg.seat_attribute for leg in legs],
+            "trnGpCd": [leg.train_group for leg in legs],
+            "stlbTrnClsfCd": [leg.train_type for leg in legs],
+        }
+        missing = sorted(name for name, values in columns.items() if not all(values))
+        if missing:
+            # 빈 값을 이어 붙이면 칸 수가 맞지 않는 요청이 되고, 서버는 그것을 오류가 아니라
+            # 다른 조회로 읽습니다. 예약 목록 · 승차권의 열차에는 좌석 속성이 없습니다.
+            raise ValueError(f"운임 조회에 필요한 값이 열차에 없습니다: {', '.join(missing)}")
+
+        url = API_ENDPOINTS["fare"]
+        # 서명은 붙이되 Sid 는 싣지 않습니다 (앱의 요청 모델에 Sid 가 없습니다).
+        headers, _ = self._api.sign(url, include_sid=False)
+        # **without_blanks 를 쓰지 않습니다.** 앱은 요청 모델을 펼친 **뒤에** 열차별 여덟 칸을
+        # 따로 넣어서, 값이 빈 gdNo(상품번호)도 그대로 실립니다. 칸의 순서도 앱이 넣는 순서입니다.
+        form = {
+            **self._api.common_payload(),
+            "txtMenuId": "11",
+            "chtnDvCd": str(len(legs)),
+            "trnCnt": str(len(legs)),
+            "dptRsStnCd": ",".join(columns["dptRsStnCd"]),
+            "arvRsStnCd": ",".join(columns["arvRsStnCd"]),
+            "runDt": ",".join(columns["runDt"]),
+            "trnNo": ",".join(columns["trnNo"]),
+            "gdNo": ",".join("" for _ in legs),
+            "rqSeatAttCd": ",".join(columns["rqSeatAttCd"]),
+            "trnGpCd": ",".join(columns["trnGpCd"]),
+            "stlbTrnClsfCd": ",".join(columns["stlbTrnClsfCd"]),
+        }
+
+        payload = self._api.post(url, data=form, headers=headers)
+        self._api.check(payload)
+
+        return [Fare.from_response(info) for info in records(payload, "prcList")]
 
     def cars(
         self,

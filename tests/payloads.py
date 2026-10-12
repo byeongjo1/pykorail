@@ -370,3 +370,20 @@ TRANSFER_SEARCH_PAYLOAD = {
     "h_rslt_cnt": "4",
     "trn_infos": {"trn_info": [FIRST_LEG_INFO, SECOND_LEG_INFO, LATER_FIRST_LEG_INFO, SOLD_OUT_SECOND_LEG_INFO]},
 }
+
+# ---------------------------------------------------------------- 운임 조회
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다 (PrcFareOut · PrcFareOutItem).
+# **값은 설명용**입니다 — 실서버 응답에서 옮긴 것이 아닙니다.
+
+GENERAL_FARE_INFO = {
+    "trnNo": "00101",
+    "jrnySqno": "001",
+    "psrmClNm": "일반실",
+    "rcvdPrc": "59800",
+    "rcvdFare": "0",
+    "sumAmt": "59800",
+}
+
+SPECIAL_FARE_INFO = {**GENERAL_FARE_INFO, "psrmClNm": "특실", "rcvdFare": "23900", "sumAmt": "83700"}
+
+FARE_PAYLOAD = {"strResult": "SUCC", "prcList": [GENERAL_FARE_INFO, SPECIAL_FARE_INFO]}

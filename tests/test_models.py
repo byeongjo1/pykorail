@@ -12,6 +12,7 @@ import pytest
 from pykorail.models import (
     Car,
     CarSeat,
+    Fare,
     Reservation,
     Schedule,
     Seat,
@@ -31,6 +32,7 @@ from tests.payloads import (
     CAR_INFO,
     CAR_SEAT_INFO,
     FIRST_LEG_INFO,
+    GENERAL_FARE_INFO,
     RESERVATION_INFO,
     SEAT_INFO,
     SEATABLE_TRAIN_INFO,
@@ -756,3 +758,21 @@ class TestParseTransfers:
 
         # then
         assert transfers == []
+
+
+class TestFare:
+    def test_parses_a_fare(self) -> None:
+        # when
+        fare = Fare.from_response(GENERAL_FARE_INFO)
+
+        # then
+        assert fare == Fare(
+            train_no="00101", journey_no="001", seat_class_name="일반실", price=59800, charge=0, total=59800
+        )
+
+    def test_empty_response_does_not_raise(self) -> None:
+        # when
+        fare = Fare.from_response({})
+
+        # then
+        assert fare == Fare(train_no="", journey_no="", seat_class_name="", price=0, charge=0, total=0)
