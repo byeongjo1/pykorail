@@ -1497,3 +1497,110 @@ class TestTickets:
         data = session.kwargs_for("refund")["data"]
         assert data["trnNo"] == "101"
         assert data["h_orgtk_sale_wct_no"] == "0000"
+
+
+class TestListsThatCameBackAsNull:
+    """결과가 없을 때 서버가 ``FAIL`` 대신 목록 자리에 null · 빈 목록을 주는 경우.
+
+    기본값을 주는 ``payload.get(a, {}).get(b, [])`` 는 **키가 없을 때만** 통합니다.
+    키는 있고 값이 null 이면 그대로 죽습니다.
+    """
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"strResult": "SUCC", "trn_infos": None},
+            {"strResult": "SUCC", "trn_infos": {"trn_info": None}},
+            {"strResult": "SUCC", "trn_infos": {"trn_info": []}},
+        ],
+        ids=["null-wrapper", "null-list", "empty-list"],
+    )
+    def test_search_reports_no_results(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({"stationdata": STATION_PAYLOAD, "search_schedule": body})
+
+        # when & then
+        with pytest.raises(NoResultsError):
+            client.trains.search("서울", "부산")
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"strResult": "SUCC", "jrny_infos": None},
+            {"strResult": "SUCC", "jrny_infos": {"jrny_info": None}},
+            {"strResult": "SUCC", "jrny_infos": {"jrny_info": [{"train_infos": None}]}},
+            {"strResult": "SUCC", "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": None}}]}},
+        ],
+        ids=["null-journeys", "null-journey-list", "null-trains", "null-train-list"],
+    )
+    def test_reservation_list_is_empty(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({"myreservationview": body})
+
+        # when
+        reservations = client.reservations.all()
+
+        # then
+        assert reservations == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"strResult": "SUCC", "h_wct_no": "0143", "jrny_infos": None},
+            {"strResult": "SUCC", "h_wct_no": "0143", "jrny_infos": {"jrny_info": None}},
+            {"strResult": "SUCC", "h_wct_no": "0143", "jrny_infos": {"jrny_info": [{"seat_infos": None}]}},
+            {
+                "strResult": "SUCC",
+                "h_wct_no": "0143",
+                "jrny_infos": {"jrny_info": [{"seat_infos": {"seat_info": None}}]},
+            },
+        ],
+        ids=["null-journeys", "null-journey-list", "null-seats", "null-seat-list"],
+    )
+    def test_seat_detail_keeps_the_window_number(self, make_korail, body: dict[str, object]) -> None:
+        """좌석을 못 읽어도 발매창구 번호는 결제에 필요합니다."""
+        # given
+        client, _ = make_korail({"myreservationlist": body})
+
+        # when
+        seats, wct_no = client.reservations.seats("1234567890")
+
+        # then
+        assert (seats, wct_no) == ([], "0143")
+
+    @pytest.mark.parametrize(
+        "body",
+        [{"strResult": "SUCC", "reservation_list": None}, {"strResult": "SUCC", "reservation_list": []}],
+        ids=["null", "empty"],
+    )
+    def test_ticket_list_is_empty(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({"myticketlist": body})
+
+        # when
+        tickets = client.tickets.all()
+
+        # then
+        assert tickets == []
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"strResult": "SUCC", "ticket_infos": None},
+            {"strResult": "SUCC", "ticket_infos": {"ticket_info": None}},
+            {"strResult": "SUCC", "ticket_infos": {"ticket_info": []}},
+            {"strResult": "SUCC", "ticket_infos": {"ticket_info": [{"tk_seat_info": None}]}},
+            {"strResult": "SUCC", "ticket_infos": {"ticket_info": [{"tk_seat_info": []}]}},
+        ],
+        ids=["null-tickets", "null-ticket-list", "empty-ticket-list", "null-seats", "empty-seats"],
+    )
+    def test_unreadable_seat_detail_keeps_the_ticket(self, make_korail, body: dict[str, object]) -> None:
+        """좌석 상세 하나를 못 읽는다고 승차권 목록 전체가 죽으면 안 됩니다."""
+        # given
+        client, _ = make_korail({"myticketlist": TICKET_LIST_PAYLOAD, "myticketseat": body})
+
+        # when
+        tickets = client.tickets.all()
+
+        # then
+        assert [t.seat_no for t in tickets] == ["5A"], "상세를 못 받으면 목록 응답 값으로 되돌아갑니다"

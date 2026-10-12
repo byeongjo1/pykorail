@@ -188,7 +188,7 @@ class TrainResource(Resource):
         payload = self._api.post(url, params=data, headers=headers)
         self._api.check(payload)
 
-        return [Train.from_response(info) for info in payload.get("trn_infos", {}).get("trn_info", [])]
+        return [Train.from_response(info) for info in records(payload, "trn_infos", "trn_info")]
 
     @staticmethod
     def _identity(train: Train) -> tuple[str, ...]:
