@@ -18,6 +18,9 @@ TrainTypeCode = Literal["100", "101", "102", "103", "104", "105", "109"]
 #: 유효한 특실/일반실 선택 전략.
 ReserveOptionCode = Literal["GENERAL_FIRST", "GENERAL_ONLY", "SPECIAL_FIRST", "SPECIAL_ONLY"]
 
+#: 유효한 객실 구분 코드.
+SeatClassCode = Literal["1", "2"]
+
 
 class TrainType:
     """``selGoTrain``/``txtTrnGpCd`` 열차 종별 코드.
@@ -44,3 +47,10 @@ class ReserveOption:
     GENERAL_ONLY: Final = "GENERAL_ONLY"
     SPECIAL_FIRST: Final = "SPECIAL_FIRST"
     SPECIAL_ONLY: Final = "SPECIAL_ONLY"
+
+
+class SeatClass:
+    """객실 구분 코드 (``psrmClCd``). 호차·좌석 조회에 그대로 실립니다."""
+
+    GENERAL: Final = "1"
+    SPECIAL: Final = "2"

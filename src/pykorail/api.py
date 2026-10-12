@@ -12,7 +12,7 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
-from pykorail.constants import API_KEY, APP_VERSION, DEVICE
+from pykorail.constants import API_KEY, APP_DISPLAY_VERSION, APP_VERSION, DEVICE
 from pykorail.exceptions import AccessRestrictedError, HttpStatusError, TransportError, error_for_code
 from pykorail.models.parsing import text
 
@@ -89,6 +89,14 @@ class ApiClient:
     def base_payload(self) -> dict[str, Any]:
         """거의 모든 요청에 실리는 앱 신원 필드."""
         return {"Device": DEVICE, "Version": APP_VERSION, "Key": API_KEY}
+
+    def common_payload(self) -> dict[str, Any]:
+        """7.0.8 요청 모델의 공통 필드 — :meth:`base_payload` 에 ``AppVersion`` 이 더해진 것.
+
+        7.0.8 에서 새로 확인한 엔드포인트는 요청 모델이 이 네 필드로 시작합니다
+        (선언 순서 그대로). 기존 엔드포인트의 폼은 건드리지 않으려고 따로 둡니다.
+        """
+        return {"Device": DEVICE, "Version": APP_VERSION, "AppVersion": APP_DISPLAY_VERSION, "Key": API_KEY}
 
     @staticmethod
     def check(payload: dict[str, Any]) -> None:

@@ -45,6 +45,8 @@ API_ENDPOINTS: Final[dict[str, str]] = {
     "login": f"{KORAIL_MOBILE}.login.Login",
     "logout": f"{KORAIL_MOBILE}.common.logout",
     "search_schedule": f"{KORAIL_MOBILE}.seatMovie.ScheduleView",
+    "seat_cars": f"{KORAIL_MOBILE}.research.TrainResearch",
+    "seat_map": f"{KORAIL_MOBILE}.research.TResidualSeatsResearch.do",
     "reserve": f"{KORAIL_MOBILE}.certification.TicketReservation",
     "cancel": f"{KORAIL_MOBILE}.reservationCancel.ReservationCancelChk",
     "myticketseat": f"{KORAIL_MOBILE}.refunds.SelTicketInfo",

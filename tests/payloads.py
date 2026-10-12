@@ -237,3 +237,56 @@ ACCESS_RESTRICTED = {
         "정상적인 환경임에도 이용이 제한되는 경우 앱을 완전히 종료한 후 다시 실행해 주시기 바랍니다."
     ),
 }
+
+# ---------------------------------------------------------------- 호차 · 좌석 조회
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다 (TrainScheduleOutTrainInfo ·
+# TrainResearchOut · TrainResearchOutCarInfo · TrainResearchOutSeatInfo ·
+# TResidualSeatsResearchOut · TResidualSeatsResearchOutSeat). **값은 설명용**입니다 —
+# 실서버 응답에서 옮긴 것이 아닙니다.
+
+#: 호차 · 좌석 조회에 필요한 필드(운행 순서 · 좌석 속성)까지 내려온 조회 결과 한 편.
+SEATABLE_TRAIN_INFO = {
+    **TRAIN_INFO,
+    "h_dpt_stn_run_ordr": "000001",
+    "h_arv_stn_run_ordr": "000017",
+    "h_seat_att_cd": "015",
+}
+
+SEATABLE_SEARCH_PAYLOAD = {"strResult": "SUCC", "trn_infos": {"trn_info": [SEATABLE_TRAIN_INFO]}}
+
+CAR_INFO = {
+    "h_srcar_no": "0003",
+    "h_seat_cnt": "56",
+    "h_psrm_cl_cd": "1",
+    "h_psrm_cl_nm": "일반실",
+    "h_rest_seat_cnt": "12",
+    "seatAttInfos": [{"seatAttCd": "015", "seatAttNm": "일반석"}],
+}
+
+FULL_CAR_INFO = {**CAR_INFO, "h_srcar_no": "0004", "h_rest_seat_cnt": "0"}
+
+SEAT_CARS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_trn_no": "00101",
+    "h_scar_num": "2",
+    "h_rcmd_srcar_no": "0003",
+    "srcar_infos": {"srcar_info": [CAR_INFO, FULL_CAR_INFO]},
+}
+
+CAR_SEAT_INFO = {
+    "seat_no": "0011",
+    "seat_spec": "3A",
+    "sale_psb_flg": "Y",
+    "dir_seat_att_cd": "009",
+    "etc_seat_att_cd": "",
+    "rq_seat_att_cd": "015",
+    "intg_msg": "",
+}
+
+TAKEN_CAR_SEAT_INFO = {**CAR_SEAT_INFO, "seat_no": "0012", "seat_spec": "3B", "sale_psb_flg": "N"}
+
+SEAT_MAP_PAYLOAD = {
+    "strResult": "SUCC",
+    "scar_no": "0003",
+    "seatList": [CAR_SEAT_INFO, TAKEN_CAR_SEAT_INFO],
+}

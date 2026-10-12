@@ -9,9 +9,30 @@ import dataclasses
 
 import pytest
 
-from pykorail.models import Reservation, Schedule, Seat, Station, Ticket, Train, parse_stations, train_info_of
+from pykorail.models import (
+    Car,
+    CarSeat,
+    Reservation,
+    Schedule,
+    Seat,
+    SeatAttribute,
+    Station,
+    Ticket,
+    Train,
+    parse_stations,
+    train_info_of,
+)
+from pykorail.models.parsing import records
 from pykorail.models.schedule import WAITING_NOT_APPLICABLE, format_duration
-from tests.payloads import RESERVATION_INFO, SEAT_INFO, TICKET_RAW, TRAIN_INFO
+from tests.payloads import (
+    CAR_INFO,
+    CAR_SEAT_INFO,
+    RESERVATION_INFO,
+    SEAT_INFO,
+    SEATABLE_TRAIN_INFO,
+    TICKET_RAW,
+    TRAIN_INFO,
+)
 
 
 class TestImmutability:
@@ -458,3 +479,147 @@ class TestStation:
 
         # then
         assert stations == []
+
+
+class TestTrainSeatLookupFields:
+    def test_parses_run_orders_and_seat_attribute(self) -> None:
+        # when
+        train = Train.from_response(SEATABLE_TRAIN_INFO)
+
+        # then
+        assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("000001", "000017", "015")
+
+    def test_missing_fields_are_blank_not_an_error(self) -> None:
+        """예약 목록 · 승차권 응답의 열차에는 이 필드들이 없습니다."""
+        # when
+        train = Train.from_response(TRAIN_INFO)
+
+        # then
+        assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("", "", "")
+
+
+class TestCar:
+    def test_parses_a_car(self) -> None:
+        # when
+        car = Car.from_response(CAR_INFO)
+
+        # then
+        assert car == Car(
+            car_no=3,
+            seat_class="1",
+            seat_class_name="일반실",
+            seat_count=56,
+            remaining_seats=12,
+            attributes=(SeatAttribute(code="015", name="일반석"),),
+        )
+
+    @pytest.mark.parametrize(("remaining", "expected"), [("12", True), ("0", False), ("", False)])
+    def test_has_seat_follows_the_remaining_count(self, remaining: str, expected: bool) -> None:
+        # when
+        car = Car.from_response({**CAR_INFO, "h_rest_seat_cnt": remaining})
+
+        # then
+        assert car.has_seat() is expected
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {key: value for key, value in CAR_INFO.items() if key != "seatAttInfos"},
+            {**CAR_INFO, "seatAttInfos": None},
+            {**CAR_INFO, "seatAttInfos": []},
+        ],
+        ids=["absent", "null", "empty"],
+    )
+    def test_missing_attributes_are_an_empty_tuple(self, data: dict[str, object]) -> None:
+        # when
+        car = Car.from_response(data)
+
+        # then
+        assert car.attributes == ()
+
+    def test_empty_response_does_not_raise(self) -> None:
+        # when
+        car = Car.from_response({})
+
+        # then
+        assert car == Car(car_no=0, seat_class="", seat_class_name="", seat_count=0, remaining_seats=0)
+
+
+class TestCarSeat:
+    def test_parses_a_seat(self) -> None:
+        # when
+        seat = CarSeat.from_response(CAR_SEAT_INFO, car_no=3)
+
+        # then
+        assert seat == CarSeat(
+            car_no=3,
+            seat_no="0011",
+            label="3A",
+            sale_flag="Y",
+            direction="009",
+            attribute="015",
+            extra_attribute="",
+            message="",
+        )
+
+    @pytest.mark.parametrize(("flag", "expected"), [("Y", True), ("N", False), ("", False)])
+    def test_available_only_when_the_sale_flag_says_so(self, flag: str, expected: bool) -> None:
+        # when
+        seat = CarSeat.from_response({**CAR_SEAT_INFO, "sale_psb_flg": flag}, car_no=3)
+
+        # then
+        assert seat.is_available is expected
+
+    def test_empty_response_does_not_raise(self) -> None:
+        # when
+        seat = CarSeat.from_response({}, car_no=3)
+
+        # then
+        assert (seat.seat_no, seat.is_available) == ("", False)
+
+
+class TestRecords:
+    def test_follows_the_path_to_the_list(self) -> None:
+        # when
+        found = records({"x_infos": {"x_info": [{"a": "1"}, {"a": "2"}]}}, "x_infos", "x_info")
+
+        # then
+        assert found == [{"a": "1"}, {"a": "2"}]
+
+    @pytest.mark.parametrize(
+        "data",
+        [
+            {},
+            {"x_infos": None},
+            {"x_infos": {}},
+            {"x_infos": {"x_info": None}},
+            {"x_infos": {"x_info": ""}},
+            {"x_infos": {"x_info": {"a": "1"}}},
+            {"x_infos": "결과 없음"},
+            {"x_infos": [{"x_info": []}]},
+        ],
+        ids=[
+            "absent",
+            "null-wrapper",
+            "empty-wrapper",
+            "null-list",
+            "blank",
+            "dict-not-list",
+            "text-wrapper",
+            "list-wrapper",
+        ],
+    )
+    def test_anything_but_a_list_is_empty(self, data: dict[str, object]) -> None:
+        """코레일은 결과가 없을 때 키를 빼거나 null 을 주거나 다른 모양을 보냅니다."""
+        # when
+        found = records(data, "x_infos", "x_info")
+
+        # then
+        assert found == []
+
+    def test_skips_items_that_are_not_records(self) -> None:
+        # when
+        found = records({"rows": [{"a": "1"}, None, "문자열", {"a": "2"}]}, "rows")
+
+        # then
+        assert found == [{"a": "1"}, {"a": "2"}]

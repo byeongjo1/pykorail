@@ -1,0 +1,88 @@
+"""호차와 그 안의 좌석 — 좌석을 고르기 위한 조회 결과.
+
+예약이 끝난 뒤의 배정 좌석(:class:`~pykorail.models.seat.Seat`)과는 다른 것입니다.
+여기 있는 것은 **아직 팔리지 않았을 수도 있는** 열차의 좌석 배치입니다.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from pykorail.models.parsing import integer, records, text
+
+#: ``sale_psb_flg`` 가 이 값이면 살 수 있는 좌석입니다.
+_SELLABLE = "Y"
+
+
+@dataclass(frozen=True)
+class SeatAttribute:
+    """호차에서 고를 수 있는 좌석 속성 하나 (순방향 · 창측 등)."""
+
+    code: str
+    name: str
+
+    @classmethod
+    def from_response(cls, data: dict[str, Any]) -> SeatAttribute:
+        return cls(code=text(data, "seatAttCd"), name=text(data, "seatAttNm"))
+
+
+@dataclass(frozen=True)
+class Car:
+    """열차의 호차 하나."""
+
+    car_no: int
+    seat_class: str
+    seat_class_name: str
+    seat_count: int
+    remaining_seats: int
+    attributes: tuple[SeatAttribute, ...] = ()
+
+    @classmethod
+    def from_response(cls, data: dict[str, Any]) -> Car:
+        return cls(
+            car_no=integer(data, "h_srcar_no"),
+            seat_class=text(data, "h_psrm_cl_cd"),
+            seat_class_name=text(data, "h_psrm_cl_nm"),
+            seat_count=integer(data, "h_seat_cnt"),
+            remaining_seats=integer(data, "h_rest_seat_cnt"),
+            attributes=tuple(SeatAttribute.from_response(item) for item in records(data, "seatAttInfos")),
+        )
+
+    def has_seat(self) -> bool:
+        return self.remaining_seats > 0
+
+
+@dataclass(frozen=True)
+class CarSeat:
+    """호차 안의 좌석 하나.
+
+    좌석을 가리킬 때는 화면 표시용 ``label`` 이 아니라 식별자 ``seat_no`` 를 씁니다.
+    """
+
+    car_no: int
+    seat_no: str
+    label: str
+    sale_flag: str
+    direction: str
+    attribute: str
+    extra_attribute: str
+    message: str
+
+    @classmethod
+    def from_response(cls, data: dict[str, Any], *, car_no: int) -> CarSeat:
+        return cls(
+            car_no=car_no,
+            seat_no=text(data, "seat_no"),
+            label=text(data, "seat_spec"),
+            sale_flag=text(data, "sale_psb_flg"),
+            direction=text(data, "dir_seat_att_cd"),
+            attribute=text(data, "rq_seat_att_cd"),
+            extra_attribute=text(data, "etc_seat_att_cd"),
+            message=text(data, "intg_msg"),
+        )
+
+    @property
+    def is_available(self) -> bool:
+        """지금 살 수 있는 좌석인지."""
+        return self.sale_flag == _SELLABLE
