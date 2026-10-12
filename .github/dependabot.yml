@@ -78,6 +78,17 @@ updates:
     groups:
       site:
         patterns: ["*"]
+    ignore:
+      # typescript 메이저는 **지금은** 받지 않습니다 — 거부가 아니라 보류입니다.
+      # `@astrojs/check` 의 peer 가 `typescript ^5 || ^6` 이라 7 을 넣으면 `npm ci` 가
+      # ERESOLVE 로 죽습니다(#35). `--legacy-peer-deps` 로 우회하지 마세요 — 지원 안
+      # 되는 조합으로 `astro check` 를 돌리게 됩니다.
+      #
+      # 받을 수 있게 되면 올립니다: `npm view @astrojs/check peerDependencies` 에 새
+      # 메이저가 들어오면 이 항목을 지우세요. 그러면 다음 Dependabot 실행이 범프 PR 을
+      # 다시 엽니다. 마이너 · 패치는 지금도 계속 받습니다.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "UPT:"
     labels: [dependencies]
