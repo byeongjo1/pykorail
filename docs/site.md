@@ -48,7 +48,7 @@ npm run dev        # http://localhost:4321/
 테마는 README 배너(Claude Design "pykorail Banner")에서 왔습니다. 2a 라이트 → 라이트 테마,
 2b 다크 → 다크 테마이고, 색 토큰은 `site/src/styles/custom.css` 한 곳에 있습니다.
 
-- **히어로** (`Hero.astro`) — 왼쪽에 제목 · 설치 명령 · 버튼, 오른쪽에 승차권.
+- **히어로** (`Hero.astro`) — 왼쪽에 제목 · 설치 명령 · 버튼 · 패키지 현황, 오른쪽에 승차권.
   승차권은 배너의 것을 이미지가 아니라 마크업으로 다시 짠 그림이고, 안의 열차 · 좌석은 예시입니다.
 - **코드 + 출발 안내판** (`Demo.astro` · `Board.astro`) — 안내판은 시안 1b 의 표. 행은 README
   "빠른 시작" 의 출력 예시와 같으니, 그쪽 예시를 바꾸면 여기도 함께 바꾸세요.
@@ -56,6 +56,28 @@ npm run dev        # http://localhost:4321/
   표와 경고에서 왔습니다.
 - 서체(IBM Plex Sans KR · JetBrains Mono)는 `@fontsource` 로 자체 호스팅합니다. 페이지를
   열어도 제3자에게 가는 요청이 없습니다.
+
+### 패키지 현황 (버전 · 다운로드)
+
+히어로의 `VERSION` · `TOTAL DOWNLOADS` · `PYTHON` 은 `site/src/lib/stats.ts` 가 **빌드
+시점에** 읽어 넣습니다. 버전과 지원 파이썬은 PyPI 에서, 누적 다운로드는 pepy.tech API 에서
+옵니다. 버전을 어디에도 적지 않는다는 저장소 규약 그대로이고, 페이지를 여는 사람의 브라우저는
+두 곳에 요청하지 않습니다.
+
+- 숫자는 **마지막 빌드 때의 값**입니다. 릴리스 태그는 사이트 빌드를 일으키지 않으므로, 새
+  버전은 다음 `main` 푸시 때 반영됩니다. 릴리스 직후 바로 맞추려면 Cloudflare 대시보드에서
+  최신 배포를 다시 실행하세요.
+- 누적 다운로드는 pepy.tech 의 `total_downloads` 입니다 (pepy 배지와 같은 숫자). PyPI 는
+  설치가 아니라 다운로드를 세므로 "설치 수" 라고 부르지 않습니다.
+- **pepy.tech API 는 키가 필요합니다** (`PEPY_API_KEY`). <https://pepy.tech> 에 로그인해
+  프로필에서 발급하고 — 무료 플랜으로 충분합니다 — 두 곳에 넣습니다.
+  - 로컬: `site/.env.example` 을 `site/.env.local` 로 복사해 값을 채웁니다. `.env.local` 은
+    gitignore 대상입니다.
+  - 배포: 아래 Cloudflare 설정의 빌드 시크릿.
+- 키가 없거나 읽지 못하면 그 항목만 빠지고 빌드는 계속됩니다 (빌드 로그에 `[stats]` 경고).
+  `site.yml` 의 PR 빌드에는 키를 주지 않으므로 거기서는 항상 빠집니다. 다른 출처로 대신
+  채우지 않는 것은, 기준이 다른 숫자가 같은 라벨로 번갈아 나오면 안 되기 때문입니다.
+- 키는 빌드 때 요청 헤더로만 쓰이고 산출물(`dist/`)에는 들어가지 않습니다.
 
 ## Cloudflare Workers 에 배포하기
 
@@ -81,6 +103,7 @@ npm run dev        # http://localhost:4321/
    | 이름 | 값 |
    | --- | --- |
    | `NODE_VERSION` | `22` |
+   | `PEPY_API_KEY` | pepy.tech API 키 — **Secret** 으로 추가 (없으면 `TOTAL DOWNLOADS` 만 빠집니다) |
 
    `SITE_URL` 과 `SITE_BASE` 는 지정하지 않아도 됩니다 — 기본값이 이 도메인의 루트입니다.
 
