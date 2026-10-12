@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## 언어
 
-- **최소 3.10.** 3.10 에 없는 문법(`type` 문, 3.12 제네릭 문법)을 쓰지 마세요.
+- **최소 3.11.** 3.11 에 없는 문법(`type` 문, 3.12 제네릭 문법)을 쓰지 마세요.
 - **모든 모듈은 `from __future__ import annotations` 로 시작.**
 - **공개 함수·메서드에는 전부 타입 힌트.** `Any` 는 경계(응답 dict, `**kwargs`)에만.
 - **런타임에 필요 없는 import 는 `if TYPE_CHECKING:` 블록으로.**

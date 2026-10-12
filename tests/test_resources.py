@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -49,7 +49,7 @@ SEARCHABLE_ROUTES = {
 #: 과거 조회 가드에 걸리지 않도록 넉넉히 미래인 기준 시각. 초까지 고정해야
 #: 전송값을 정확히 단언할 수 있습니다.
 FUTURE = (datetime.now(KST) + timedelta(days=30)).replace(hour=9, minute=30, second=0, microsecond=0)
-FUTURE_UTC = (datetime.now(timezone.utc) + timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+FUTURE_UTC = (datetime.now(UTC) + timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
 
 
 class TestToKst:
@@ -63,7 +63,7 @@ class TestToKst:
 
     def test_aware_is_converted(self) -> None:
         # given
-        utc_midnight = datetime(2026, 4, 1, 0, 0, tzinfo=timezone.utc)
+        utc_midnight = datetime(2026, 4, 1, 0, 0, tzinfo=UTC)
 
         # when
         result = to_kst(utc_midnight)
@@ -307,7 +307,7 @@ class TestPastDepartureGuard:
     def test_utc_past_datetime_is_converted_then_rejected(self, korail) -> None:
         # given
         client, _ = korail
-        utc_past = datetime.now(timezone.utc) - timedelta(hours=5)
+        utc_past = datetime.now(UTC) - timedelta(hours=5)
 
         # when & then
         with pytest.raises(PastDepartureError):

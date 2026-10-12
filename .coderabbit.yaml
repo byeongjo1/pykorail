@@ -109,7 +109,7 @@ reviews:
 
     - path: "src/pykorail/**/*.py"
       instructions: >-
-        최소 지원 버전은 **3.10** 입니다. 3.10 에 없는 문법(`type` 문, 3.12 제네릭
+        최소 지원 버전은 **3.11** 입니다. 3.11 에 없는 문법(`type` 문, 3.12 제네릭
         등)을 쓰면 지적하세요.
 
         모든 모듈은 `from __future__ import annotations` 로 시작합니다.

@@ -5,7 +5,7 @@ name = "pykorail"
 dynamic = ["version"]
 description = "코레일(KTX) 스마트 예매 비공식 Python 클라이언트"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = { text = "MIT" }
 license-files = ["LICENSE"]
 authors = [{ name = "devgyurak", email = "devgyurak@gmail.com" }]
@@ -16,7 +16,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: Korean",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -76,7 +75,7 @@ dev = [
 # ---------------------------------------------------------------- ruff
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 src = ["src", "tests"]
 # 리팩터링 이전 원본. src/pykorail 로 옮겨졌고 대조 검증용으로만 남겨 둡니다.
 # hatch-vcs 가 빌드 시 생성하는 파일 — 손으로 고치지 않으므로 검사 대상이 아닙니다.
