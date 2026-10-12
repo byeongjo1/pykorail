@@ -22,6 +22,7 @@ from pykorail.resources.trains import KST, PAST_TOLERANCE, to_kst
 from tests.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
+    CAR_INFO,
     MANY_RESERVATION_IDS,
     MANY_RESERVATIONS_PAYLOAD,
     NEARBY_SEARCH_PAYLOAD,
@@ -636,7 +637,10 @@ class TestSeatCars:
         cars = client.trains.cars(train)
 
         # then
-        assert [(car.car_no, car.remaining_seats, car.has_seat()) for car in cars] == [(3, 12, True), (4, 0, False)]
+        assert [(car.car_no, car.remaining_seats, car.has_seat()) for car in cars] == [
+            ("0003", 19, True),
+            ("0004", 0, False),
+        ]
 
     def test_sends_exact_form_fields(self, make_korail) -> None:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
@@ -679,7 +683,7 @@ class TestSeatCars:
 
         # then
         data = session.kwargs_for("seat_cars")["data"]
-        assert (data["txtDptStnRunOrdr"], data["txtArvStnRunOrdr"]) == ("000001", "000017")
+        assert (data["txtDptStnRunOrdr"], data["txtArvStnRunOrdr"]) == ("000001", "000019")
 
     def test_goes_in_the_form_body_not_the_query(self, make_korail) -> None:
         """앱은 이 요청을 폼 본문으로 보냅니다(@FormUrlEncoded)."""
@@ -702,7 +706,7 @@ class TestSeatCars:
         client.trains.cars(train)
 
         # then
-        assert session.kwargs_for("seat_cars").get("headers", {}) == {}
+        assert "x-dynapath-m-token" not in session.kwargs_for("seat_cars").get("headers", {})
 
     def test_leaves_out_fields_the_search_did_not_fill(self, korail) -> None:
         """앱은 값이 빈 필드를 싣지 않습니다. 빈 문자열로 보내면 다른 요청이 됩니다."""
@@ -779,8 +783,8 @@ class TestCarSeats:
 
         # then
         assert [(seat.seat_no, seat.label, seat.is_available) for seat in seats] == [
-            ("0011", "3A", True),
-            ("0012", "3B", False),
+            ("57", "15A", True),
+            ("58", "15B", False),
         ]
 
     def test_seats_know_their_car(self, make_korail) -> None:
@@ -793,7 +797,7 @@ class TestCarSeats:
         seats = client.trains.seats(train, car)
 
         # then
-        assert {seat.car_no for seat in seats} == {3}
+        assert {seat.car_no for seat in seats} == {"0003"}
 
     def test_sends_exact_form_fields(self, make_korail) -> None:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
@@ -815,19 +819,87 @@ class TestCarSeats:
         car = client.trains.cars(train)[0]
 
         # when
-        client.trains.seats(train, car, passengers=[AdultPassenger(2)], seat_class=SeatClass.SPECIAL)
+        client.trains.seats(train, car, passengers=[AdultPassenger(2)])
 
         # then
         data = session.kwargs_for("seat_map")["data"]
         sent = {key: data[key] for key in ("trnNo", "srcarNo", "psrmClCd", "seatAttCd", "totPsgCnt", "isArrow")}
         assert sent == {
             "trnNo": "00101",
-            "srcarNo": "3",
-            "psrmClCd": "2",
+            "srcarNo": "0003",
+            "psrmClCd": "1",
             "seatAttCd": "015",
             "totPsgCnt": "2",
             "isArrow": "false",
         }
+
+    def test_car_number_goes_back_exactly_as_the_server_gave_it(self, make_korail) -> None:
+        """호차 번호는 "0003" 처럼 0 이 채워져 옵니다. 숫자로 바꿨다 되돌리면 그 모양을 잃습니다."""
+        # given
+        client, session = make_korail(SEAT_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train)[0]
+
+        # when
+        client.trains.seats(train, car)
+
+        # then
+        assert session.kwargs_for("seat_map")["data"]["srcarNo"] == CAR_INFO["h_srcar_no"]
+
+    def test_seat_class_comes_from_the_car_by_default(self, make_korail) -> None:
+        """호차 목록에 넘긴 객실을 다시 넘길 필요가 없어야 합니다."""
+        # given
+        special_car = {**CAR_INFO, "h_psrm_cl_cd": "2", "h_psrm_cl_nm": "특실"}
+        routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [special_car]}}}
+        client, session = make_korail(routes)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train, seat_class=SeatClass.SPECIAL)[0]
+
+        # when
+        client.trains.seats(train, car)
+
+        # then
+        assert session.kwargs_for("seat_map")["data"]["psrmClCd"] == "2"
+
+    def test_car_without_a_seat_class_is_rejected_before_any_request(self, make_korail) -> None:
+        """객실 코드가 비면 psrmClCd 가 요청에서 통째로 빠집니다. 넘겨짚지 않고 막습니다."""
+        # given
+        classless_car = {**CAR_INFO, "h_psrm_cl_cd": ""}
+        routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [classless_car]}}}
+        client, session = make_korail(routes)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train)[0]
+
+        # when & then
+        with pytest.raises(ValueError, match="seat_class"):
+            client.trains.seats(train, car)
+        assert API_ENDPOINTS["seat_map"] not in session.urls()
+
+    def test_explicit_seat_class_rescues_a_car_without_one(self, make_korail) -> None:
+        # given
+        classless_car = {**CAR_INFO, "h_psrm_cl_cd": ""}
+        routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [classless_car]}}}
+        client, session = make_korail(routes)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train)[0]
+
+        # when
+        client.trains.seats(train, car, seat_class=SeatClass.GENERAL)
+
+        # then
+        assert session.kwargs_for("seat_map")["data"]["psrmClCd"] == "1"
+
+    def test_explicit_seat_class_overrides_the_car(self, make_korail) -> None:
+        # given
+        client, session = make_korail(SEAT_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train)[0]
+
+        # when
+        client.trains.seats(train, car, seat_class=SeatClass.SPECIAL)
+
+        # then
+        assert session.kwargs_for("seat_map")["data"]["psrmClCd"] == "2"
 
     def test_goes_in_the_form_body_not_the_query(self, make_korail) -> None:
         # given
@@ -851,7 +923,7 @@ class TestCarSeats:
         client.trains.seats(train, car)
 
         # then
-        assert session.kwargs_for("seat_map").get("headers", {}) == {}
+        assert "x-dynapath-m-token" not in session.kwargs_for("seat_map").get("headers", {})
 
     @pytest.mark.parametrize(
         "body",

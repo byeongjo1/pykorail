@@ -169,7 +169,7 @@ seats(
     train: Train,
     car: Car,
     passengers: Sequence[Passenger] | None = None,
-    seat_class: SeatClassCode = SeatClass.GENERAL,
+    seat_class: SeatClassCode | None = None,
 ) -> list[CarSeat]
 ```
 
@@ -178,7 +178,7 @@ seats(
 | `train` | `search` 가 돌려준 열차. |
 | `car` | `cars` 가 돌려준 호차. **같은 로그인 세션에서 받은 것**이어야 합니다. |
 | `passengers` | 생략 시 어른 1명. 두 호출에 같은 값을 넘기세요. |
-| `seat_class` | [`SeatClass`](#seatclass) 코드. 기본 일반실. 두 호출에 같은 값을 넘기세요. |
+| `seat_class` | [`SeatClass`](#seatclass) 코드. `cars` 는 기본 일반실. `seats` 는 생략하면 호차의 객실(`car.seat_class`)을 쓰므로 다시 넘길 필요가 없습니다. 호차에 객실 코드가 없는데 생략하면 `ValueError`. |
 
 ```python
 from pykorail import SeatClass
@@ -188,9 +188,9 @@ train = korail.trains.search("서울", "부산")[0]
 cars = korail.trains.cars(train, seat_class=SeatClass.SPECIAL)
 car = next(car for car in cars if car.has_seat())
 
-seats = korail.trains.seats(train, car, seat_class=SeatClass.SPECIAL)
+seats = korail.trains.seats(train, car)
 print([seat.label for seat in seats if seat.is_available])
-# ['3A', '3D', '4B', …]
+# ['15A', '15D', '14B', …]
 ```
 
 > [!NOTE]
@@ -318,7 +318,7 @@ if fee.refundable and fee.fee < 10000:
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `car_no` | `int` | 호차 번호 |
+| `car_no` | `str` | 호차 번호. 서버가 준 문자열 그대로입니다 (`"0003"`) |
 | `seat_class` · `seat_class_name` | `str` | 객실 구분 코드 · 이름 (`"1"` / `"일반실"`) |
 | `seat_count` | `int` | 전체 좌석 수 |
 | `remaining_seats` | `int` | 남은 좌석 수 |
@@ -334,9 +334,9 @@ if fee.refundable and fee.fee < 10000:
 
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
-| `car_no` | `int` | 호차 번호 |
-| `seat_no` | `str` | 좌석 **식별자**. 좌석을 가리킬 때는 이 값을 씁니다 |
-| `label` | `str` | 화면에 보이는 좌석 표시 (`"3A"`) |
+| `car_no` | `str` | 호차 번호 (`"0003"`) |
+| `seat_no` | `str` | 좌석 **식별자** (`"57"`). 좌석을 가리킬 때는 이 값을 씁니다 |
+| `label` | `str` | 화면에 보이는 좌석 표시 (`"15A"`) |
 | `sale_flag` | `str` | 판매 가능 표시 (`"Y"` = 가능) |
 | `is_available` | `bool` (속성) | 지금 살 수 있는 좌석인지 |
 | `direction` · `attribute` · `extra_attribute` | `str` | 방향 · 요청 좌석 · 기타 속성 코드 |

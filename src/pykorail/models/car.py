@@ -29,9 +29,13 @@ class SeatAttribute:
 
 @dataclass(frozen=True)
 class Car:
-    """열차의 호차 하나."""
+    """열차의 호차 하나.
 
-    car_no: int
+    ``car_no`` 는 서버가 준 문자열 그대로입니다(``"0003"``). 좌석 조회에 그대로
+    돌려보내는 값이라 숫자로 바꾸지 않습니다 — 배정 좌석의 ``Seat.car`` 와 같습니다.
+    """
+
+    car_no: str
     seat_class: str
     seat_class_name: str
     seat_count: int
@@ -41,7 +45,7 @@ class Car:
     @classmethod
     def from_response(cls, data: dict[str, Any]) -> Car:
         return cls(
-            car_no=integer(data, "h_srcar_no"),
+            car_no=text(data, "h_srcar_no"),
             seat_class=text(data, "h_psrm_cl_cd"),
             seat_class_name=text(data, "h_psrm_cl_nm"),
             seat_count=integer(data, "h_seat_cnt"),
@@ -60,7 +64,7 @@ class CarSeat:
     좌석을 가리킬 때는 화면 표시용 ``label`` 이 아니라 식별자 ``seat_no`` 를 씁니다.
     """
 
-    car_no: int
+    car_no: str
     seat_no: str
     label: str
     sale_flag: str
@@ -70,7 +74,7 @@ class CarSeat:
     message: str
 
     @classmethod
-    def from_response(cls, data: dict[str, Any], *, car_no: int) -> CarSeat:
+    def from_response(cls, data: dict[str, Any], *, car_no: str) -> CarSeat:
         return cls(
             car_no=car_no,
             seat_no=text(data, "seat_no"),

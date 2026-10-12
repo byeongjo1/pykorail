@@ -250,20 +250,34 @@ class TrainResource(Resource):
         train: Train,
         car: Car,
         passengers: Sequence[Passenger] | None = None,
-        seat_class: SeatClassCode = SeatClass.GENERAL,
+        seat_class: SeatClassCode | None = None,
     ) -> list[CarSeat]:
         """호차 하나의 좌석 배치와 좌석별 판매 가능 여부를 조회합니다. **로그인이 필요합니다.**
 
         ``car`` 는 같은 로그인 세션에서 :meth:`cars` 로 받은 것이어야 합니다 — 앱의 화면
         순서(호차 목록 → 좌석 배치)가 그렇고, 호차 목록 없이 바로 부르면 서버가 인증
-        오류를 돌려준 사례가 있습니다. ``passengers`` 와 ``seat_class`` 는 :meth:`cars`
-        에 넘긴 값과 같게 넘기세요.
+        오류를 돌려준 사례가 있습니다. ``passengers`` 는 :meth:`cars` 에 넘긴 값과 같게
+        넘기세요.
 
         요청 필드는 코레일+ 7.0.8 의 ``TResidualSeatsResearchIn`` 에서 확인했습니다.
 
+        Args:
+            train: :meth:`search` 가 돌려준 열차.
+            car: :meth:`cars` 가 돌려준 호차.
+            passengers: 생략하면 어른 1명.
+            seat_class: 생략하면 호차의 객실(``car.seat_class``)을 씁니다. 호차 목록에
+                넘긴 값을 다시 넘길 필요가 없습니다.
+
         Raises:
+            ValueError: 호차에 객실 코드가 없는데 ``seat_class`` 도 넘기지 않았습니다.
             NeedToLoginError: 로그인하지 않았습니다.
         """
+        room = seat_class or car.seat_class
+        if not room:
+            # 빈 값으로 두면 without_blanks 가 psrmClCd 를 통째로 빼 버려, 서버가 어떤 객실로
+            # 해석할지 알 수 없는 요청이 나갑니다. 일반실로 넘겨짚지 않고 여기서 멈춥니다.
+            raise ValueError("호차에 객실 코드가 없습니다 — seat_class 를 직접 넘기세요")
+
         url = API_ENDPOINTS["seat_map"]
         headers, _ = self._api.sign(url)
         form = without_blanks(
@@ -273,8 +287,9 @@ class TrainResource(Resource):
                 "trnGpCd": train.train_group,
                 "runDt": train.run_date,
                 "trnNo": train.train_no.zfill(5),
-                "srcarNo": str(car.car_no),
-                "psrmClCd": seat_class,
+                # 서버가 준 호차 번호("0001")를 그대로 돌려보냅니다.
+                "srcarNo": car.car_no,
+                "psrmClCd": room,
                 "dptRsStnCd": train.dep_code,
                 "arvRsStnCd": train.arr_code,
                 "seatAttCd": train.seat_attribute,

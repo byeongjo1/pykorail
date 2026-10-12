@@ -487,7 +487,7 @@ class TestTrainSeatLookupFields:
         train = Train.from_response(SEATABLE_TRAIN_INFO)
 
         # then
-        assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("000001", "000017", "015")
+        assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("000001", "000019", "015")
 
     def test_missing_fields_are_blank_not_an_error(self) -> None:
         """예약 목록 · 승차권 응답의 열차에는 이 필드들이 없습니다."""
@@ -505,15 +505,15 @@ class TestCar:
 
         # then
         assert car == Car(
-            car_no=3,
+            car_no="0003",
             seat_class="1",
             seat_class_name="일반실",
-            seat_count=56,
-            remaining_seats=12,
+            seat_count=58,
+            remaining_seats=19,
             attributes=(SeatAttribute(code="015", name="일반석"),),
         )
 
-    @pytest.mark.parametrize(("remaining", "expected"), [("12", True), ("0", False), ("", False)])
+    @pytest.mark.parametrize(("remaining", "expected"), [("00019", True), ("00000", False), ("", False)])
     def test_has_seat_follows_the_remaining_count(self, remaining: str, expected: bool) -> None:
         # when
         car = Car.from_response({**CAR_INFO, "h_rest_seat_cnt": remaining})
@@ -542,37 +542,37 @@ class TestCar:
         car = Car.from_response({})
 
         # then
-        assert car == Car(car_no=0, seat_class="", seat_class_name="", seat_count=0, remaining_seats=0)
+        assert car == Car(car_no="", seat_class="", seat_class_name="", seat_count=0, remaining_seats=0)
 
 
 class TestCarSeat:
     def test_parses_a_seat(self) -> None:
         # when
-        seat = CarSeat.from_response(CAR_SEAT_INFO, car_no=3)
+        seat = CarSeat.from_response(CAR_SEAT_INFO, car_no="0003")
 
         # then
         assert seat == CarSeat(
-            car_no=3,
-            seat_no="0011",
-            label="3A",
+            car_no="0003",
+            seat_no="57",
+            label="15A",
             sale_flag="Y",
             direction="009",
             attribute="015",
-            extra_attribute="",
+            extra_attribute="000",
             message="",
         )
 
     @pytest.mark.parametrize(("flag", "expected"), [("Y", True), ("N", False), ("", False)])
     def test_available_only_when_the_sale_flag_says_so(self, flag: str, expected: bool) -> None:
         # when
-        seat = CarSeat.from_response({**CAR_SEAT_INFO, "sale_psb_flg": flag}, car_no=3)
+        seat = CarSeat.from_response({**CAR_SEAT_INFO, "sale_psb_flg": flag}, car_no="0003")
 
         # then
         assert seat.is_available is expected
 
     def test_empty_response_does_not_raise(self) -> None:
         # when
-        seat = CarSeat.from_response({}, car_no=3)
+        seat = CarSeat.from_response({}, car_no="0003")
 
         # then
         assert (seat.seat_no, seat.is_available) == ("", False)
