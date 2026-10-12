@@ -116,6 +116,19 @@ class TestMetadata:
         # when & then
         assert f'"Programming Language :: Python :: 3.{minor}"' in PYPROJECT_TEXT
 
+    def test_declares_no_classifier_below_minimum(self) -> None:
+        """지원을 끊은 버전의 classifier 가 남아 있으면 PyPI 가 지원 범위를 거짓으로 보여 줍니다."""
+        # given
+        from pykorail._compat import MIN_PYTHON
+
+        declared = [int(minor) for minor in re.findall(r'"Programming Language :: Python :: 3\.(\d+)"', PYPROJECT_TEXT)]
+
+        # when
+        dropped = [minor for minor in declared if minor < MIN_PYTHON[1]]
+
+        # then
+        assert dropped == []
+
 
 class TestCoverageGate:
     def test_threshold_is_ninety(self) -> None:
