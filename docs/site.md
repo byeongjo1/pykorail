@@ -95,7 +95,7 @@ npm run dev        # http://localhost:4321/
    | Production branch | `main` |
    | Build command | `npm run build` |
    | Deploy command | `npx wrangler deploy` |
-   | Non-production branch deploy command | `npx wrangler versions upload` |
+   | Preview command (`main` 이 아닌 브랜치) | `npx wrangler preview` — 기본값 그대로 |
    | Path (advanced settings — 루트 디렉터리) | `/site` |
 
 3. 빌드 변수 (advanced):
