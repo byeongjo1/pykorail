@@ -18,7 +18,7 @@ from pykorail.exceptions import (
 from pykorail.models import AdultPassenger, Card, ChildPassenger, Reservation, Seat, Ticket
 from pykorail.options import SeatClass
 from pykorail.resources.base import without_blanks
-from pykorail.resources.trains import KST, PAST_TOLERANCE, to_kst
+from pykorail.resources.trains import KST, MAX_PAGES, PAST_TOLERANCE, to_kst
 from tests.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
@@ -508,8 +508,18 @@ class TestTrainSearchPages:
         # then
         assert [t.train_no for t in trains] == ["101", "103"]
 
-    @pytest.mark.parametrize("max_pages", [0, -1])
-    def test_rejects_a_page_limit_below_one_before_any_request(self, make_korail, max_pages: int) -> None:
+    def test_the_upper_limit_itself_is_accepted(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(paged_routes(FIRST_PAGE, NOTHING_NEW_PAGE))
+
+        # when
+        trains = client.trains.search("서울", "부산", depart_after=FUTURE, max_pages=MAX_PAGES)
+
+        # then
+        assert [t.train_no for t in trains] == ["101", "103"]
+
+    @pytest.mark.parametrize("max_pages", [0, -1, MAX_PAGES + 1, 1000])
+    def test_rejects_a_page_limit_out_of_range_before_any_request(self, make_korail, max_pages: int) -> None:
         # given
         client, session = make_korail(paged_routes(FIRST_PAGE))
 

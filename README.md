@@ -96,6 +96,21 @@ while True:
 </details>
 
 <details>
+<summary><b>뒤쪽 열차까지 이어서 보기</b></summary>
+
+서버는 조회 한 번에 한 쪽(열 편)만 줍니다. `max_pages` 를 올리면 마지막 열차의 출발
+시각부터 다시 조회해 이어 붙입니다.
+
+```python
+trains = korail.trains.search("서울", "부산", include_no_seats=True, max_pages=5)
+print(len(trains), trains[-1].dep_time)
+```
+
+쪽마다 요청이 한 번씩 더 나갑니다. 새 열차가 더 없으면 그 전에 멈춥니다.
+
+</details>
+
+<details>
 <summary><b>매진일 때 예약대기 걸기</b></summary>
 
 ```python

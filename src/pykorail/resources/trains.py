@@ -36,6 +36,11 @@ KST = timezone(timedelta(hours=KST_OFFSET_HOURS))
 #: 조회할 이유가 없습니다.
 PAST_TOLERANCE = timedelta(minutes=1)
 
+#: ``max_pages`` 의 상한. 한 쪽이 열 편이라 하루치 시간표를 덮고도 남습니다. 이보다 큰
+#: 값은 오타이거나 과한 자동 요청이라 요청 전에 막습니다 — 쪽마다 요청이 한 번씩 나가고,
+#: 코레일은 과도한 자동 요청에 계정을 제재합니다.
+MAX_PAGES = 20
+
 
 def to_kst(moment: datetime | None) -> datetime:
     """KST 기준 시각으로 정규화합니다.
@@ -91,16 +96,16 @@ class TrainResource(Resource):
             max_pages: 이어 받을 쪽 수의 상한. 서버는 요청 한 번에 한 쪽만 줍니다.
                 2 이상이면 마지막 열차의 출발 시각부터 다시 조회해 이어 붙이고, 새
                 열차가 더 나오지 않으면 상한 전에 멈춥니다. 쪽마다 요청이 한 번씩
-                더 나가므로 필요한 만큼만 올리세요.
+                더 나가므로 필요한 만큼만 올리세요. 최대 :data:`MAX_PAGES`.
 
         Raises:
-            ValueError: ``max_pages`` 가 1 보다 작습니다.
+            ValueError: ``max_pages`` 가 1 보다 작거나 :data:`MAX_PAGES` 보다 큽니다.
             StationNotFoundError: ``dep``/``arr`` 이 역 마스터에 없습니다.
             PastDepartureError: ``depart_after`` 가 이미 지난 시각입니다.
             NoResultsError: 조건에 맞는 열차가 없습니다.
         """
-        if max_pages < 1:
-            raise ValueError(f"max_pages 는 1 이상이어야 합니다: {max_pages}")
+        if not 1 <= max_pages <= MAX_PAGES:
+            raise ValueError(f"max_pages 는 1 이상 {MAX_PAGES} 이하여야 합니다: {max_pages}")
         if self.validate_stations:
             self._stations.ensure_exist(dep, arr)
 
