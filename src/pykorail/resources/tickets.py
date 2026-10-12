@@ -6,6 +6,7 @@ from typing import Any
 
 from pykorail.constants import API_ENDPOINTS
 from pykorail.exceptions import NoResultsError
+from pykorail.models.parsing import records
 from pykorail.models.refund import RefundFee
 from pykorail.models.ticket import Ticket, train_info_of
 from pykorail.resources.base import Resource
@@ -45,7 +46,7 @@ class TicketResource(Resource):
 
         # 좌석 상세 조회에 원본 dict 가 필요해서 Ticket.from_ticket_list() 가 아니라
         # 언래핑 헬퍼를 직접 씁니다 — 둘 다 같은 train_info_of() 위에 서 있습니다.
-        raws = [train_info_of(entry) for entry in payload.get("reservation_list", [])]
+        raws = [train_info_of(entry) for entry in records(payload, "reservation_list")]
         return [Ticket.from_response(raw, seat_no=self._seat_no(raw)) for raw in raws if raw is not None]
 
     def _seat_no(self, raw: dict[str, Any]) -> str | None:
@@ -80,9 +81,11 @@ class TicketResource(Resource):
         except NoResultsError:
             return None
 
-        ticket_info = payload.get("ticket_infos", {}).get("ticket_info", [{}])[0]
-        seat = ticket_info.get("tk_seat_info", [{}])[0]
-        return seat.get("h_seat_no")
+        # 목록이 비거나 null 로 오면 좌석번호를 모르는 것으로 봅니다. 날 인덱싱(`[0]`)은 빈
+        # 목록 하나에 승차권 목록 전체를 터뜨립니다.
+        tickets = records(payload, "ticket_infos", "ticket_info")
+        seats = records(tickets[0], "tk_seat_info") if tickets else []
+        return seats[0].get("h_seat_no") if seats else None
 
     def refund_fee(self, ticket: Ticket) -> RefundFee:
         """환불하면 수수료가 얼마인지 **조회만** 합니다. 환불하지 않습니다.

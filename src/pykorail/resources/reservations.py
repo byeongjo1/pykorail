@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from pykorail.constants import API_ENDPOINTS
 from pykorail.exceptions import KorailError, NoResultsError
 from pykorail.models.card import Card
-from pykorail.models.parsing import text
+from pykorail.models.parsing import records, text
 from pykorail.models.passenger import AdultPassenger, Passenger
 from pykorail.models.reservation import Reservation
 from pykorail.models.seat import Seat
@@ -71,8 +71,8 @@ class ReservationResource(Resource):
 
         return [
             train_info
-            for journey in payload.get("jrny_infos", {}).get("jrny_info", [])
-            for train_info in journey.get("train_infos", {}).get("train_info", [])
+            for journey in records(payload, "jrny_infos", "jrny_info")
+            for train_info in records(journey, "train_infos", "train_info")
         ]
 
     def _complete(self, entry: dict[str, Any]) -> Reservation:
@@ -100,12 +100,11 @@ class ReservationResource(Resource):
             return [], None
 
         wct_no = payload.get("h_wct_no")
-        journeys = payload.get("jrny_infos", {}).get("jrny_info", [])
+        journeys = records(payload, "jrny_infos", "jrny_info")
         if not journeys:
             return [], wct_no
 
-        seat_info = journeys[0].get("seat_infos", {}).get("seat_info", [])
-        return [Seat.from_response(seat) for seat in seat_info], wct_no
+        return [Seat.from_response(seat) for seat in records(journeys[0], "seat_infos", "seat_info")], wct_no
 
     def create(
         self,
