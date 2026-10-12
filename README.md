@@ -1,8 +1,9 @@
 <div align="center">
 
-# 🚄 pykorail
-
-**파이썬으로 KTX 표를 조회하고 예매합니다**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/devgyurak/pykorail/main/.github/assets/banner-dark.png">
+  <img src="https://raw.githubusercontent.com/devgyurak/pykorail/main/.github/assets/banner-light.png" alt="pykorail — 파이썬으로 KTX 표를 조회하고 예매합니다">
+</picture>
 
 코레일 스마트 예매(코레일톡) API 를 감싼 비공식 클라이언트
 
