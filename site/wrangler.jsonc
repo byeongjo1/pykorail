@@ -1,5 +1,6 @@
 // Cloudflare Workers 정적 자산: 빌드된 dist/ 를 Worker 스크립트 없이 그대로 서빙합니다.
-// Workers Builds 가 site/ 에서 `npm run build` 뒤 `npx wrangler deploy` 를 실행합니다 (docs/site.md).
+// Workers Builds 가 site/ 에서 `npm run build` 뒤, main 이면 `npx wrangler deploy` 를, 그 밖의
+// 브랜치면 `npx wrangler preview` 를 실행합니다 (docs/site.md).
 // `name` 은 대시보드의 Worker 이름과 같아야 합니다 — 다르면 빌드가 배포를 거부합니다.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
@@ -9,5 +10,10 @@
     "directory": "./dist",
     // Starlight 가 dist/404.html 을 만듭니다. 없는 경로에는 그것을 404 상태로 돌려줍니다.
     "not_found_handling": "404-page"
-  }
+  },
+  // 미리보기 빌드(`npx wrangler preview`)는 이 블록이 **있어야** 돕니다. 없으면
+  // "missing a `previews` block" 으로 실패해 모든 PR 에 빨간 체크가 붙습니다. 비어 있어도
+  // 됩니다 — 정적 자산과 호환 날짜는 위의 최상위 값을 그대로 쓰고, 미리보기에만 따로 줄
+  // 변수나 바인딩이 없습니다.
+  "previews": {}
 }
