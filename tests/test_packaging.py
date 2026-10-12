@@ -110,7 +110,7 @@ class TestMetadata:
         # then
         assert target == "py{}{}".format(*MIN_PYTHON)
 
-    @pytest.mark.parametrize("minor", [11, 12, 13, 14])
+    @pytest.mark.parametrize("minor", [11, 12, 13, 14, 15])
     def test_declares_a_classifier_for_each_supported_minor(self, minor: int) -> None:
         """CI 매트릭스와 classifier 가 어긋나면 사용자가 지원 범위를 오해합니다."""
         # when & then
@@ -158,4 +158,4 @@ class TestWorkflows:
         text = (self.WORKFLOWS / name).read_text(encoding="utf-8")
 
         # when & then
-        assert 'python: ["3.11", "3.12", "3.13", "3.14"]' in text
+        assert 'python: ["3.11", "3.12", "3.13", "3.14", "3.15"]' in text

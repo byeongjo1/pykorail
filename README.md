@@ -260,7 +260,7 @@ except KorailError as exc:
 
 ## 개발
 
-파이썬 3.11 이상 (3.11 – 3.14 에서 테스트합니다).
+파이썬 3.11 이상 (3.11 – 3.15 에서 테스트합니다).
 
 ```bash
 uv sync --all-extras

@@ -141,7 +141,8 @@ client.py  (Korail — 로그인/로그아웃/연결 수명만)
   `write_text()` 전부입니다. 파이썬 기본 인코딩은 플랫폼 로케일을 따라가서
   Windows 에서는 UTF-8 이 아니고(cp1252 · cp949), 한국어가 든 이 저장소의 파일은
   **그 환경에서만** 깨집니다. CI 는 우분투에서만 도니 실행으로는 안 잡힙니다 —
-  `tests/test_style.py` 가 AST 로 강제합니다.
+  `tests/test_style.py` 가 AST 로 강제합니다. 3.15 부터는 기본이 UTF-8 이지만
+  (PEP 686), 3.11 – 3.14 를 지원하는 동안은 이 규칙이 그대로 필요합니다.
 - **`dict.get()` 연쇄 대신 파싱 헬퍼.**
 - **주석은 "무엇"이 아니라 "왜".** 특히 이상해 보이는 코드(앱 동작 재현, 서버 요구
   사항)에는 이유를 남기세요 — 다음 사람이 "정리"하려 들기 때문입니다.
@@ -252,7 +253,7 @@ def test_individual_by_default(self) -> None:
 
 ## 6. CI/CD
 
-- **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.11–3.14** 테스트,
+- **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.11–3.15** 테스트,
   빌드·설치 확인, Trivy 스캔. **전부 우분투에서만 돕니다** — `src/` 에 플랫폼 분기가
   없고, Windows 러너가 실제로 잡아주던 인코딩 기본값 문제는 `tests/test_style.py`
   의 `test_text_io_declares_encoding` 이 AST 로 대신합니다.
