@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.astro/
+# scripts/sync-docs.mjs 가 저장소의 Markdown 에서 만들어 내는 파일 — 여기서 고치지 않습니다.
+src/content/docs/*.md
+.wrangler/
+# 로컬 비밀(PEPY_API_KEY). 틀은 .env.example 에 있습니다 — 실제 값은 절대 커밋하지 않습니다.
+.env
+.env.*
+!.env.example

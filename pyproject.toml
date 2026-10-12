@@ -37,6 +37,7 @@ fallback = ["requests>=2.31.0"]
 
 [project.urls]
 Homepage = "https://github.com/devgyurak/pykorail"
+Documentation = "https://pykorail.devgyurak.com"
 Repository = "https://github.com/devgyurak/pykorail"
 Issues = "https://github.com/devgyurak/pykorail/issues"
 

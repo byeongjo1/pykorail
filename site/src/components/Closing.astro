@@ -1,0 +1,88 @@
+---
+// 랜딩의 끝맺음: 비공식 고지와 프로젝트 링크. 고지 문구는 README 의 경고와 같습니다.
+// 본문 한가운데의 경고 상자 대신 여기 두는 것은, 비공식이라는 사실은 히어로의 라벨이 먼저
+// 말하고 문서 쪽 "개요" 첫머리에도 같은 경고가 있기 때문입니다.
+const links = [
+  { label: "GitHub", href: "https://github.com/devgyurak/pykorail" },
+  { label: "PyPI", href: "https://pypi.org/project/pykorail/" },
+  { label: "릴리스 노트", href: "https://github.com/devgyurak/pykorail/releases" },
+  { label: "MIT 라이선스", href: "https://github.com/devgyurak/pykorail/blob/main/LICENSE" },
+];
+---
+
+<div class="pk-closing not-content">
+  <div class="pk-closing-grid">
+  <div class="pk-notice">
+    <p class="pk-label">UNOFFICIAL</p>
+    <p class="pk-notice-body">
+      코레일과 아무 관련 없는 <strong>비공식</strong> 라이브러리입니다. 문서화되지 않은 앱 API 를 쓰기 때문에
+      코레일이 앱을 바꾸면 예고 없이 멈출 수 있습니다. 이용 약관과 관련 법령을 지키는 것은 사용자 책임이며,
+      과도한 자동 요청은 계정 제재로 이어질 수 있습니다.
+    </p>
+  </div>
+  <nav aria-label="프로젝트 링크">
+    <p class="pk-label">PROJECT</p>
+    <ul>
+      {
+        links.map((link) => (
+          <li>
+            <a href={link.href}>{link.label}</a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  </div>
+</div>
+
+<style>
+  .pk-closing {
+    container-type: inline-size;
+    margin-top: clamp(3.5rem, 8vw, 5.5rem);
+    padding-top: 2rem;
+    border-top: 1px solid var(--pk-hairline);
+  }
+  .pk-closing-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem 4rem;
+  }
+  p {
+    margin: 0;
+  }
+  .pk-notice-body {
+    max-width: 40rem;
+    margin-top: 0.75rem;
+    font-size: 0.9375rem;
+    line-height: 1.75;
+    color: var(--sl-color-gray-2);
+    word-break: keep-all;
+    text-wrap: pretty;
+  }
+  strong {
+    color: var(--sl-color-white);
+  }
+  ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  a {
+    font-size: 0.9375rem;
+    color: var(--sl-color-white);
+    text-decoration: none;
+  }
+  a:hover {
+    color: var(--sl-color-text-accent);
+    text-decoration: underline;
+    text-underline-offset: 0.25em;
+  }
+  @container (min-width: 44rem) {
+    .pk-closing-grid {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+  }
+</style>

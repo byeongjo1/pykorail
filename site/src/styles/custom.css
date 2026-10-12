@@ -1,0 +1,100 @@
+/* README 배너(Claude Design "pykorail Banner")의 테마입니다. 2a 라이트 → 라이트 테마,
+   2b 다크 → 다크 테마. 서체도 배너와 같은 IBM Plex Sans KR · JetBrains Mono 이고, Google 에서
+   받아 오지 않고 자체 호스팅(@fontsource)합니다 — 페이지를 열어도 제3자에게 가는 요청이 없습니다. */
+
+:root {
+  --sl-font: "IBM Plex Sans KR", system-ui, sans-serif;
+  --sl-font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* 2b 다크. Starlight 의 다크 단계는 white(가장 밝은 글자) → black(페이지 바탕) 순입니다. */
+  --sl-color-white: #f3f0e8;
+  --sl-color-gray-1: #e4e1da;
+  --sl-color-gray-2: #c9ccd3;
+  --sl-color-gray-3: #8a8f99;
+  --sl-color-gray-4: #555a64;
+  --sl-color-gray-5: #2e323a;
+  --sl-color-gray-6: #1a1d23;
+  --sl-color-black: #0e1014;
+
+  --sl-color-accent-low: #16213d;
+  --sl-color-accent: #2b5bd7;
+  --sl-color-accent-high: #7fa6ff;
+
+  /* 배너에서는 승차권만 바탕 위에 떠 있습니다. 내비게이션과 사이드바는 바탕과 같은 면에 둡니다. */
+  --sl-color-bg-nav: var(--sl-color-black);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+
+  --pk-page: #0e1014;
+  --pk-surface: #1a1d23;
+  --pk-ink: #f3f0e8;
+  --pk-ink-invert: #16181d;
+  --pk-muted: #8a8f99;
+  --pk-accent: #7fa6ff;
+  --pk-hairline: #2e323a;
+  --pk-ticket-shadow: 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 60px -20px rgb(0 0 0 / 0.6);
+
+  /* 출발 안내판(시안 1b)은 실제 전광판처럼 테마와 무관하게 어둡습니다. */
+  --pk-board: #121418;
+  --pk-board-line: #2c3038;
+  --pk-board-ink: #f3f0e8;
+  --pk-board-muted: #8a8f99;
+  --pk-board-train: #7fa6ff;
+  --pk-board-open: #7fd8a4;
+  --pk-board-sold: #ff8a7a;
+}
+
+:root[data-theme="light"] {
+  /* 2a 라이트. 라이트 단계는 뒤집혀 있습니다: white 가 가장 짙은 글자, black 이 페이지 바탕. */
+  --sl-color-white: #16181d;
+  --sl-color-gray-1: #26282e;
+  --sl-color-gray-2: #44474e;
+  --sl-color-gray-3: #6b6e76;
+  --sl-color-gray-4: #9a9890;
+  --sl-color-gray-5: #d9d3c5;
+  --sl-color-gray-6: #e6e1d5;
+  --sl-color-gray-7: #ece8de;
+  --sl-color-black: #f3f0e8;
+
+  --sl-color-accent-low: #dbe3f6;
+  --sl-color-accent: #2b5bd7;
+  --sl-color-accent-high: #1c3f9c;
+
+  --sl-color-bg-nav: var(--sl-color-black);
+  --sl-color-bg-sidebar: var(--sl-color-black);
+
+  --pk-page: #f3f0e8;
+  --pk-surface: #fffdf8;
+  --pk-ink: #16181d;
+  --pk-ink-invert: #fffdf8;
+  --pk-muted: #6b6e76;
+  --pk-accent: #2b5bd7;
+  --pk-hairline: #d9d3c5;
+  --pk-ticket-shadow: 0 1px 0 rgb(0 0 0 / 0.04), 0 24px 60px -20px rgb(22 24 29 / 0.25);
+}
+
+/* 배너의 굵기와 자간. 한국어는 낱말 중간이 아니라 띄어쓰기에서 줄을 바꿉니다. */
+.sl-markdown-content :is(h1, h2, h3, h4),
+h1#_top {
+  letter-spacing: -0.02em;
+  word-break: keep-all;
+}
+.sl-markdown-content :is(p, li, td) {
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+
+/* 사이드바 묶음 제목은 승차권의 필드 라벨처럼 작고 흐리게. 한글이라 모노 서체와 넓은 자간은 쓰지 않습니다. */
+.sidebar-content .large {
+  font-size: var(--sl-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--sl-color-gray-3);
+}
+
+/* 승차권의 필드 라벨: 모노 · 대문자 · 넓은 자간. 랜딩의 여러 컴포넌트가 함께 씁니다. */
+.pk-label {
+  margin: 0;
+  font: 500 0.75rem / 1.3 var(--sl-font-mono);
+  letter-spacing: 0.14em;
+  color: var(--pk-muted);
+}

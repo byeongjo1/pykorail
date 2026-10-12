@@ -20,6 +20,9 @@ uv run pytest            # 테스트 + 커버리지 게이트
 uv build                 # 배포 아티팩트
 ```
 
+`site/`(문서 사이트)만 예외로 Node 를 씁니다 — `cd site && npm ci && npm run build`.
+파이썬 게이트와는 무관하고, 절차는 `docs/site.md` 에 있습니다.
+
 **작업을 끝내기 전에 반드시 네 개를 전부 통과시키세요.** 하나라도 실패하면 끝난 게
 아닙니다. 실패를 우회(`# noqa`, `# type: ignore`, `--no-cov`)하지 말고 원인을 고치세요.
 정말 우회가 맞다면 **왜** 인지 같은 줄에 적으세요.
@@ -257,9 +260,15 @@ def test_individual_by_default(self) -> None:
   (`request_changes_workflow: false`). 설정에 경로별 리뷰 지침이 들어 있고,
   `knowledge_base.code_guidelines` 로 이 파일과 `CONTRIBUTING.md`·스킬을 리뷰
   기준으로 읽습니다 — **규범을 고치면 리뷰 기준도 함께 바뀝니다.**
-- **Dependabot** (`.github/dependabot.yml`) — 액션과 `uv` 의존성을 주 1회(월요일)
+- **Dependabot** (`.github/dependabot.yml`) — 액션 · `uv` · `site/` 의 npm 의존성을 주 1회(월요일)
   범프합니다. 워크플로가 아니라 GitHub 기능이고, **여기서 오는 PR 도 `ci-ok` 를
   통과해야 머지됩니다.**
+- **문서 사이트** (`.github/workflows/site.yml`) — `site/` 나 그 원본 문서(`README.md` ·
+  `docs/reference.md` · `CONTRIBUTING.md`)를 건드린 PR 에서 사이트를 빌드하고 내부 링크를
+  검사합니다. 경로 필터가 있어 **필수 체크가 아닙니다.** 배포는 워크플로가 아니라
+  Cloudflare Workers Builds 가 main 에서 직접 합니다 (`docs/site.md`). 사이트의 문서
+  페이지는 빌드 때 원본에서 복사되니 **`site/` 가 아니라 원본을 고치세요** — 손으로 쓰는
+  것은 랜딩(`site/src/content/docs/index.mdx`)뿐입니다.
 - **Release** (`.github/workflows/release.yml`) — `v*` 태그에서 동작. 태그와 패키지
   버전을 대조하고, 전 버전 게이트를 다시 돌린 뒤 PyPI(Trusted Publishing)에 올리고
   릴리스 노트를 자동 생성합니다.

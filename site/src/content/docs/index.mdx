@@ -1,0 +1,52 @@
+---
+title: 파이썬으로 KTX 예매
+description: 코레일(KTX) 스마트 예매 비공식 Python 클라이언트. 열차 조회부터 예매 · 결제 · 환불까지.
+template: splash
+# 랜딩에는 "페이지 편집" 링크를 두지 않습니다 — 끝맺음은 Closing 이 합니다.
+editUrl: false
+hero:
+  title: 파이썬으로 KTX 표를 조회하고 예매합니다
+  tagline: 코레일 스마트 예매(코레일톡) API 를 감싼 비공식 클라이언트
+  actions:
+    - text: 빠른 시작
+      link: overview/
+      icon: right-arrow
+    - text: API 레퍼런스
+      link: reference/
+      variant: secondary
+    - text: GitHub
+      link: https://github.com/devgyurak/pykorail
+      variant: minimal
+      icon: external
+---
+
+import Closing from "../../components/Closing.astro";
+import Demo from "../../components/Demo.astro";
+import Facts from "../../components/Facts.astro";
+import SectionHead from "../../components/SectionHead.astro";
+
+<SectionHead id="quick-start" title="빠른 시작" href="overview/#할-수-있는-것" more="예매 · 결제 · 환불 예제" />
+
+<Demo>
+
+```python
+from datetime import datetime
+from pykorail import Korail
+
+with Korail.logged_in("me@example.com", "password") as korail:
+    trains = korail.trains.search(
+        "서울",
+        "부산",
+        depart_after=datetime(2026, 4, 1, 9, 0),
+    )
+    for train in trains:
+        print(train)
+```
+
+</Demo>
+
+<SectionHead id="good-to-know" title="알아두면 좋은 것" />
+
+<Facts />
+
+<Closing />
