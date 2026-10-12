@@ -49,7 +49,7 @@ class TestImmutability:
             (Seat.from_response(SEAT_INFO), "seat"),
             (Ticket.from_response(TICKET_RAW), "seat_no"),
             (Reservation.from_response(RESERVATION_INFO), "rsv_id"),
-            (Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO), "first"),
+            (Transfer.from_response([FIRST_LEG_INFO, SECOND_LEG_INFO]), "legs"),
         ],
     )
     def test_models_are_frozen(self, model: object, field: str) -> None:
@@ -653,7 +653,7 @@ class TestTransferStation:
 class TestTransfer:
     def test_refers_to_two_trains_in_riding_order(self) -> None:
         # when
-        transfer = Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO)
+        transfer = Transfer.from_response([FIRST_LEG_INFO, SECOND_LEG_INFO])
 
         # then
         assert [(leg.train_no, leg.dep_name, leg.arr_name) for leg in transfer.legs] == [
@@ -663,7 +663,7 @@ class TestTransfer:
 
     def test_station_name_is_where_the_legs_meet(self) -> None:
         # when
-        transfer = Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO)
+        transfer = Transfer.from_response([FIRST_LEG_INFO, SECOND_LEG_INFO])
 
         # then
         assert transfer.station_name == "대전"
@@ -671,7 +671,7 @@ class TestTransfer:
     def test_station_name_is_none_when_the_legs_do_not_meet(self) -> None:
         """도착역과 다음 출발역이 다르면 역 사이를 따로 이동해야 합니다. 한쪽을 환승역이라 넘겨짚지 않습니다."""
         # when
-        transfer = Transfer.from_response(FIRST_LEG_INFO, {**SECOND_LEG_INFO, "h_dpt_rs_stn_nm": "서대전"})
+        transfer = Transfer.from_response([FIRST_LEG_INFO, {**SECOND_LEG_INFO, "h_dpt_rs_stn_nm": "서대전"}])
 
         # then
         assert transfer.station_name is None
@@ -683,7 +683,7 @@ class TestTransfer:
     )
     def test_has_seat_needs_both_legs(self, second: dict[str, str], expected: bool) -> None:
         # when
-        transfer = Transfer.from_response(FIRST_LEG_INFO, second)
+        transfer = Transfer.from_response([FIRST_LEG_INFO, second])
 
         # then
         assert transfer.has_seat() is expected
@@ -719,6 +719,29 @@ class TestParseTransfers:
 
         # then
         assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201")]
+
+    def test_dropped_rows_leave_a_warning(self, caplog: pytest.LogCaptureFixture) -> None:
+        """버린 행이 있는데 아무 말도 없으면 "여정 없음" 의 원인을 알 길이 없습니다."""
+        # given
+        third_leg = {**SECOND_LEG_INFO, "h_trn_no": "1205", "h_chg_trn_seq": "3"}
+
+        # when
+        with caplog.at_level("WARNING", logger="pykorail.models.transfer"):
+            transfers = parse_transfers([FIRST_LEG_INFO, SECOND_LEG_INFO, third_leg])
+
+        # then
+        assert transfers == []
+        assert [record.getMessage() for record in caplog.records] == [
+            "환승 조회 행 3개 중 3개가 두 구간 여정으로 묶이지 않아 버렸습니다 (여정 번호별 행 수: {'000': 3})"
+        ]
+
+    def test_clean_pairing_is_silent(self, caplog: pytest.LogCaptureFixture) -> None:
+        # when
+        with caplog.at_level("WARNING", logger="pykorail.models.transfer"):
+            parse_transfers([FIRST_LEG_INFO, SECOND_LEG_INFO])
+
+        # then
+        assert caplog.records == []
 
     def test_no_rows_is_no_itineraries(self) -> None:
         # when

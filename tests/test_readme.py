@@ -96,7 +96,7 @@ class TestModelFields:
             (Ticket, ["train", "seat_no", "car_no", "price", "pnr_no"]),
             (Train, ["train_no", "train_type", "run_date", "wait_reserve_flag", "dep_run_order", "seat_attribute"]),
             (Car, ["car_no", "seat_class", "seat_class_name", "seat_count", "remaining_seats", "attributes"]),
-            (Transfer, ["first", "second"]),
+            (Transfer, ["legs"]),
             (
                 CarSeat,
                 ["car_no", "seat_no", "label", "sale_flag", "direction", "attribute", "extra_attribute", "message"],

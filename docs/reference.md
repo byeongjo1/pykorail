@@ -190,8 +190,9 @@ print([station.name for station in korail.trains.transfer_stations("강릉", "�
 
 > [!NOTE]
 > 응답에서 짝이 분명한 두 구간만 여정으로 돌려줍니다. 무엇과 짝인지 알 수 없는 열차는
-> 넘겨짚어 잇지 않고 버립니다. `TransferStation.english_name` 은 서버가 빼고 줄 때가 있어
-> 빈 문자열일 수 있습니다.
+> 넘겨짚어 잇지 않고 버립니다 — **두 번 갈아타는 여정도 지금은 버립니다.** 버린 것이
+> 있으면 `pykorail.models.transfer` 로거에 경고가 남습니다. `TransferStation.english_name`
+> 은 서버가 빼고 줄 때가 있어 빈 문자열일 수 있습니다.
 
 #### 호차 · 좌석 조회
 
@@ -358,8 +359,8 @@ if fee.refundable and fee.fee < 10000:
 
 | 필드 · 속성 | 타입 | 설명 |
 | --- | --- | --- |
-| `first` · `second` | `Train` | 타는 순서대로 두 구간 |
-| `legs` | `tuple[Train, Train]` (속성) | 위 둘을 튜플로 |
+| `legs` | `tuple[Train, ...]` | 타는 순서대로 구간들. 지금은 항상 둘입니다 |
+| `first` · `second` | `Train` (속성) | 처음 타는 열차 · 갈아탄 뒤의 열차 |
 | `station_name` | `str \| None` (속성) | 갈아타는 역 이름. 첫 열차의 도착역과 둘째 열차의 출발역이 다르면 `None` |
 | `has_seat()` | `bool` (메서드) | 두 구간 **모두** 좌석이 있는지 |
 
