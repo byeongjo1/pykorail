@@ -12,7 +12,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/pykorail?color=3776AB&logo=python&logoColor=white&cacheSeconds=10800)](https://pypi.org/project/pykorail/)
 [![License](https://img.shields.io/pypi/l/pykorail?color=green&cacheSeconds=10800)](LICENSE)
 
-[빠른 시작](#빠른-시작) · [할 수 있는 것](#할-수-있는-것) · [API 레퍼런스](docs/reference.md) · [기여하기](CONTRIBUTING.md)
+[문서 사이트](https://pykorail.devgyurak.com) · [빠른 시작](#빠른-시작) · [할 수 있는 것](#할-수-있는-것) · [API 레퍼런스](docs/reference.md) · [기여하기](CONTRIBUTING.md)
 
 </div>
 
@@ -199,6 +199,7 @@ except KorailError as exc:
 
 |                                                       |                                              |
 | ----------------------------------------------------- | -------------------------------------------- |
+| 🌐 [**문서 사이트**](https://pykorail.devgyurak.com)        | 이 문서들을 한곳에서 — 검색 · 다크 모드                     |
 | 📖 [**API 레퍼런스**](docs/reference.md)                  | 전체 메서드 · 모델 · 옵션 · 예외                        |
 | 🤝 [기여 가이드](CONTRIBUTING.md)                          | 개발 환경, 테스트 규칙, PR 절차                         |
 | 🏛 [아키텍처 규약](AGENTS.md)                               | 계층 구조, 외부 API 불변식                            |
