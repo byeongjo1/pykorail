@@ -100,6 +100,7 @@ class TestConstruction:
         assert client.trains is not None
         assert client.reservations is not None
         assert client.tickets is not None
+        assert client.membership is not None
 
     def test_resources_share_one_session(self, korail) -> None:
         # given

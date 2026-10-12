@@ -238,6 +238,69 @@ ACCESS_RESTRICTED = {
     ),
 }
 
+# ---------------------------------------------------------------- 마일리지 · 할인쿠폰
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다(AmtSpecOut ·
+# AmtSpecOutSpecInfo · CouponOut · CouponOutInfo). **값은 전부 예시**이고, 값의 모양
+# (쉼표 · 부호 · 날짜 형식)은 실서버로 확인한 것이 아닙니다.
+
+MILEAGE_ENTRY_INFO = {
+    "rcpDvNm": "승차권 구입",
+    "dptDt": "20261003",
+    "mlgAcmDvCdNm": "적립",
+    "stlAmt": "59800",
+    "savePontValNum": "2990",
+    "pontAmt": "+2,990",
+    "pontDvNm": "KTX 마일리지",
+}
+
+USED_MILEAGE_ENTRY_INFO = {**MILEAGE_ENTRY_INFO, "dptDt": "20260921", "rcpDvNm": "승차권 결제", "pontAmt": "-1,000"}
+
+MILEAGE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRZ000001",
+    "h_msg_txt": "정상적으로 조회 되었습니다.",
+    "totAvlRailPontValNum": "12340",
+    "totAvlAfltPontValNum": "500",
+    "totAcmRailPontValNum1": "0",
+    "totAvlRailPontValNum1": "660",
+    "totUseRailPontValNum1": "0",
+    "delPontValNum": "120",
+    "specList": [MILEAGE_ENTRY_INFO, USED_MILEAGE_ENTRY_INFO],
+    "qryCnt": "2",
+    "pgCnt": "3",
+    "ktxMlgInfo": "KTX 마일리지는 적립일로부터 5년간 유효합니다.",
+}
+
+COUPON_INFO = {
+    "h_cpn_no": "C202610120001234",
+    "h_disc_rt_amt_dv_cd": "1",
+    "h_fdcert_mg_st_dt": "20261001",
+    "h_fdcert_mg_cls_dt": "20261231",
+    "h_inwk_prc_disc_rt_amt": "10",
+    "h_wknd_prc_disc_rt_amt": "10",
+    "h_inwk_fare_disc_rt_amt": "0",
+    "h_wknd_fare_disc_rt_amt": "0",
+    "h_rmk_1_cont": "KTX 10% 할인쿠폰",
+    "h_rmk_2_cont": "주중 · 주말 모두 사용 가능",
+    "h_rmk_3_cont": "KTX",
+    "h_dscp_knd_cd": "01",
+    "guide": "한 번에 한 장만 쓸 수 있습니다.",
+}
+
+COUPONS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRZ000001",
+    "h_msg_txt": "정상적으로 조회 되었습니다.",
+    "h_tot_page_cnt": "1",
+    "h_page_no": "1",
+    "h_tot_cnt": "1",
+    "h_row_cnt": "1",
+    "coupon_infos": {"coupon_info": [COUPON_INFO]},
+}
+
+#: 쿠폰이 없을 때. 7.0.8 실서버 기록에서 성공 봉투에 이 코드가 실려 왔습니다.
+NO_COUPONS_PAYLOAD = {"strResult": "SUCC", "h_msg_cd": "WRG000000", "h_msg_txt": "조회 결과가 없습니다."}
+
 # ---------------------------------------------------------------- 호차 · 좌석 조회
 # 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고(TrainScheduleOutTrainInfo ·
 # TrainResearchOut · TrainResearchOutCarInfo · TrainResearchOutSeatInfo ·

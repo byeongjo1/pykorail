@@ -288,6 +288,45 @@ if fee.refundable and fee.fee < 10000:
 | `refundable` | `bool` | 환불 가능 여부. `False` 면 `amount` 는 의미 없음 |
 | `period_code` | `str` | 수수료를 계산한 반환 시기 구분 코드 |
 
+### `korail.membership`
+
+마일리지와 할인쿠폰을 조회합니다. 전부 **로그인이 필요합니다.**
+
+| 메서드 | 반환 | 설명 |
+| --- | --- | --- |
+| `mileage(since=None, until=None, *, kind=KTX, inquiry=ALL, page=1)` | `Mileage` | 마일리지 잔액과 적립 · 사용 내역 한 쪽. |
+| `coupons(page=1)` | `list[Coupon]` | 가진 할인쿠폰. 없으면 빈 리스트. |
+
+```python
+mileage = korail.membership.mileage()
+print(mileage.total, mileage.rail_point, mileage.expiring)  # 13000 500 120
+
+for entry in mileage.entries:
+    print(entry.date, entry.kind_name, entry.reason, entry.amount)
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `since` · `until` | 내역을 볼 기간 (`datetime.date`). `until` 을 생략하면 오늘(KST), `since` 를 생략하면 `until` 의 30일 전. `since` 가 더 늦으면 `ValueError`. |
+| `kind` | 어느 장부의 내역인지 — [`MileageType`](#mileagetype) 코드. 기본 KTX 마일리지. |
+| `inquiry` | 적립 · 사용 구분 — [`MileageInquiry`](#mileageinquiry) 코드. 기본 전체. |
+| `page` | 쪽 번호. 1 부터이고, 1 보다 작으면 `ValueError`. 한 쪽에 20건씩 요청합니다. |
+
+**잔액은 조건과 무관하게 함께 옵니다.** `kind` · `inquiry` · 기간은 내역(`entries`)만
+거릅니다. 내역이 한 쪽을 넘으면 `page_count` 만큼 쪽 번호를 올려 다시 조회하세요.
+
+```python
+from datetime import date
+from pykorail import MileageInquiry
+
+since = date(2026, 7, 1)
+used = korail.membership.mileage(since, inquiry=MileageInquiry.USE)
+entries = list(used.entries)
+
+for page in range(2, used.page_count + 1):
+    entries += korail.membership.mileage(since, inquiry=MileageInquiry.USE, page=page).entries
+```
+
 ## 모델
 
 전부 불변(`frozen=True`)이고 `from_response()` 로 생성됩니다. `dataclasses.replace()`
@@ -397,6 +436,49 @@ if fee.refundable and fee.fee < 10000:
 | `direction` · `attribute` · `extra_attribute` | `str` | 방향 · 요청 좌석 · 기타 속성 코드 |
 | `message` | `str` | 좌석에 붙은 안내 문구 |
 
+### `Mileage`
+
+`korail.membership.mileage()` 가 돌려주는 잔액과 내역 한 쪽입니다.
+
+| 필드 · 속성 | 타입 | 설명 |
+| --- | --- | --- |
+| `ktx` | `int` | KTX 마일리지 |
+| `samsung_card` | `int` | KTX 삼성카드로 쌓은 마일리지 |
+| `total` | `int` (속성) | 위 둘의 합 — 앱이 "KTX 마일리지" 로 보여 주는 숫자 |
+| `rail_point` | `int` | 레일포인트. `total` 에는 들어가지 않습니다 |
+| `expiring` | `int` | 이번 달 소멸 예정 |
+| `info` | `str` | 마일리지 안내 문구 |
+| `page_count` | `int` | 조건에 맞는 내역의 전체 쪽 수 |
+| `entries` | `tuple[MileageEntry, ...]` | 이번 쪽의 내역 |
+
+### `MileageEntry`
+
+적립 · 사용 내역 한 줄입니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `date` | `str` | 날짜 `YYYYMMDD` |
+| `kind_name` | `str` | 어느 마일리지인지 |
+| `reason` | `str` | 적립 · 사용 사유 |
+| `amount` | `str` | 증감. 서버가 준 **표시용 문자열 그대로**입니다 — 숫자로 바꾸지 않습니다 |
+
+### `Coupon`
+
+`korail.membership.coupons()` 가 돌려주는 할인쿠폰 한 장입니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `coupon_no` | `str` | 쿠폰번호 |
+| `title` | `str` | 쿠폰 이름 |
+| `description` | `str` | 덧붙는 설명 |
+| `tag` | `str` | 앱이 꼬리표로 보여 주는 짧은 구분 |
+| `valid_from` · `valid_until` | `str` | 쓸 수 있는 기간 `YYYYMMDD`. **승차일** 기준입니다 |
+| `guide` | `str` | 이용 안내 |
+
+쿠폰번호는 번호만 알면 다른 계정에 등록할 수 있는 값이라 `repr` 은 뒤 4자리만
+남깁니다. 할인율 · 할인액은 값의 형식을 확인하지 못해 싣지 않았습니다 — 무슨 쿠폰인지는
+`title` 로 읽으세요.
+
 ### `Station`
 
 | 필드 | 설명 |
@@ -496,6 +578,25 @@ Passenger.reduce([AdultPassenger(1), ChildPassenger(1), AdultPassenger(2)])
 | --- | --- |
 | `GENERAL` (기본) | `1` |
 | `SPECIAL` | `2` |
+
+### `MileageType`
+
+마일리지 내역을 볼 장부입니다. 타입 별칭은 `MileageTypeCode` 입니다.
+
+| 이름 | 코드 |
+| --- | --- |
+| `KTX` (기본) | `1` |
+| `RAIL_POINT` | `2` |
+
+### `MileageInquiry`
+
+마일리지 내역의 적립 · 사용 구분입니다. 타입 별칭은 `MileageInquiryCode` 입니다.
+
+| 이름 | 코드 | 앱의 "조회 유형" |
+| --- | --- | --- |
+| `ALL` (기본) | `0` | 전체 |
+| `SAVE` | `1` | 적립 |
+| `USE` | `2` | 사용 |
 
 ## 예외
 

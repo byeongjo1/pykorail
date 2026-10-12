@@ -17,13 +17,18 @@ def text(data: dict[str, Any], key: str, default: str = "") -> str:
 
 def integer(data: dict[str, Any], key: str, default: int = 0) -> int:
     """정수 필드를 읽습니다. 없거나 숫자로 못 읽으면 ``default``."""
+    return _to_int(data.get(key), default)
+
+
+def amount(data: dict[str, Any], key: str, default: int = 0) -> int:
+    """금액·포인트 필드를 읽습니다. 자릿수 쉼표(``"12,340"``)가 있어도 읽습니다.
+
+    앱은 이런 값을 더하기 전에 문자열에서 한 글자를 지우고 숫자로 바꿉니다
+    (코레일+ 7.0.8 ``StringExKt.safeToLong``). :func:`integer` 로 읽으면 쉼표가 든
+    값이 오류 없이 ``default`` 가 되어, 잔액이 조용히 0 으로 보입니다.
+    """
     value = data.get(key)
-    if value is None or value == "":
-        return default
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
+    return _to_int(value.replace(",", "") if isinstance(value, str) else value, default)
 
 
 def floating(data: dict[str, Any], key: str, default: float | None = None) -> float | None:
@@ -52,6 +57,15 @@ def records(data: dict[str, Any], *path: str) -> list[dict[str, Any]]:
     if not isinstance(node, list):
         return []
     return [item for item in node if isinstance(item, dict)]
+
+
+def _to_int(value: Any, default: int) -> int:
+    if value is None or value == "":
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def hhmm(value: str) -> str:

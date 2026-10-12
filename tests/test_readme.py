@@ -20,9 +20,29 @@ from pykorail.client import Korail
 from pykorail.device import DEVICE_PROFILES
 from pykorail.exceptions import KorailError
 from pykorail.exceptions.api import _coded_subclasses
-from pykorail.models import Car, Card, CarSeat, Passenger, Reservation, Seat, Station, Ticket, Train, Transfer
-from pykorail.options import ReserveOption, TrainType
-from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
+from pykorail.models import (
+    Car,
+    Card,
+    CarSeat,
+    Coupon,
+    Mileage,
+    MileageEntry,
+    Passenger,
+    Reservation,
+    Seat,
+    Station,
+    Ticket,
+    Train,
+    Transfer,
+)
+from pykorail.options import MileageInquiry, MileageType, ReserveOption, TrainType
+from pykorail.resources import (
+    MembershipResource,
+    ReservationResource,
+    StationResource,
+    TicketResource,
+    TrainResource,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 README = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -59,6 +79,7 @@ class TestResourceMethods:
             (TrainResource, "korail.trains"),
             (ReservationResource, "korail.reservations"),
             (TicketResource, "korail.tickets"),
+            (MembershipResource, "korail.membership"),
         ],
         ids=lambda v: v if isinstance(v, str) else v.__name__,
     )
@@ -73,6 +94,7 @@ class TestResourceMethods:
             | set(public_methods(TrainResource))
             | set(public_methods(ReservationResource))
             | set(public_methods(TicketResource))
+            | set(public_methods(MembershipResource))
         ),
     )
     def test_every_resource_method_is_documented(self, method: str) -> None:
@@ -96,6 +118,9 @@ class TestModelFields:
             (Ticket, ["train", "seat_no", "car_no", "price", "pnr_no"]),
             (Train, ["train_no", "train_type", "run_date", "wait_reserve_flag", "dep_run_order", "seat_attribute"]),
             (Car, ["car_no", "seat_class", "seat_class_name", "seat_count", "remaining_seats", "attributes"]),
+            (Mileage, ["ktx", "samsung_card", "rail_point", "expiring", "info", "page_count", "entries"]),
+            (MileageEntry, ["date", "kind_name", "reason", "amount"]),
+            (Coupon, ["coupon_no", "title", "description", "tag", "valid_from", "valid_until", "guide"]),
             (Transfer, ["legs"]),
             (
                 CarSeat,
@@ -112,7 +137,10 @@ class TestModelFields:
         # then
         assert set(fields) <= actual
 
-    @pytest.mark.parametrize("model", [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer])
+    @pytest.mark.parametrize(
+        "model",
+        [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer, Mileage, MileageEntry, Coupon],
+    )
     def test_model_has_a_section(self, model: type) -> None:
         # when & then
         assert f"### `{model.__name__}`" in REFERENCE
@@ -133,6 +161,22 @@ class TestOptionCodes:
     def test_reserve_option_is_documented(self, name: str) -> None:
         # when & then
         assert f"`{name}`" in REFERENCE
+
+    @pytest.mark.parametrize(
+        ("options", "name"),
+        [(options, n) for options in (MileageType, MileageInquiry) for n in vars(options) if not n.startswith("_")],
+        ids=lambda v: v if isinstance(v, str) else v.__name__,
+    )
+    def test_mileage_option_matches_its_table(self, options: type, name: str) -> None:
+        """코드가 다른 표와 겹치므로(`1` · `2`) 그 옵션의 절 안에서 이름과 코드를 함께 봅니다."""
+        # given
+        section = REFERENCE.split(f"### `{options.__name__}`")[1].split("\n### ")[0]
+
+        # when
+        row = next(line for line in section.splitlines() if line.startswith(f"| `{name}`"))
+
+        # then
+        assert f"| `{getattr(options, name)}` |" in row
 
 
 class TestPassengerTable:
