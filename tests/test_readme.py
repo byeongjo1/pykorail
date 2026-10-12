@@ -20,7 +20,7 @@ from pykorail.client import Korail
 from pykorail.device import DEVICE_PROFILES
 from pykorail.exceptions import KorailError
 from pykorail.exceptions.api import _coded_subclasses
-from pykorail.models import Car, Card, CarSeat, Passenger, Reservation, Seat, Station, Ticket, Train
+from pykorail.models import Car, Card, CarSeat, Passenger, Reservation, Seat, Station, Ticket, Train, Transfer
 from pykorail.options import ReserveOption, TrainType
 from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
 
@@ -96,6 +96,7 @@ class TestModelFields:
             (Ticket, ["train", "seat_no", "car_no", "price", "pnr_no"]),
             (Train, ["train_no", "train_type", "run_date", "wait_reserve_flag", "dep_run_order", "seat_attribute"]),
             (Car, ["car_no", "seat_class", "seat_class_name", "seat_count", "remaining_seats", "attributes"]),
+            (Transfer, ["first", "second"]),
             (
                 CarSeat,
                 ["car_no", "seat_no", "label", "sale_flag", "direction", "attribute", "extra_attribute", "message"],
@@ -111,7 +112,7 @@ class TestModelFields:
         # then
         assert set(fields) <= actual
 
-    @pytest.mark.parametrize("model", [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat])
+    @pytest.mark.parametrize("model", [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer])
     def test_model_has_a_section(self, model: type) -> None:
         # when & then
         assert f"### `{model.__name__}`" in REFERENCE

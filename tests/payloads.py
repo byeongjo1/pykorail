@@ -300,3 +300,60 @@ SEAT_MAP_PAYLOAD = {
     "scar_no": "0003",
     "seatList": [CAR_SEAT_INFO, TAKEN_CAR_SEAT_INFO],
 }
+
+# ---------------------------------------------------------------- 환승 조회
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다 (ChtnStnOut · ChtnStnOutItem,
+# TrainScheduleOutTrainInfo 의 h_trn_seq · h_chg_trn_seq). **값은 설명용**입니다 —
+# 실서버 응답에서 옮긴 것이 아닙니다.
+
+TRANSFER_STATIONS_PAYLOAD = {
+    "strResult": "SUCC",
+    "chtnList": [{"chtnRsStnCd": "0015", "chtnRsStnNm": "대전", "chtnRsStnEngNm": "Daejeon"}],
+}
+
+#: 서울 → 대전. 같은 여정의 두 행은 ``h_trn_seq`` 가 같고, 여정 안의 순서가 ``h_chg_trn_seq`` 입니다.
+FIRST_LEG_INFO = {
+    **TRAIN_INFO,
+    "h_arv_rs_stn_nm": "대전",
+    "h_arv_rs_stn_cd": "0015",
+    "h_arv_tm": "100000",
+    "h_trn_seq": "1",
+    "h_chg_trn_seq": "1",
+}
+
+#: 대전 → 부산.
+SECOND_LEG_INFO = {
+    **TRAIN_INFO,
+    "h_trn_clsf_cd": "02",
+    "h_trn_clsf_nm": "무궁화호",
+    "h_trn_no": "1201",
+    "h_dpt_rs_stn_nm": "대전",
+    "h_dpt_rs_stn_cd": "0015",
+    "h_dpt_tm": "102000",
+    "h_arv_tm": "133000",
+    "h_trn_seq": "1",
+    "h_chg_trn_seq": "2",
+}
+
+#: 둘째 구간이 매진인 다른 여정.
+LATER_FIRST_LEG_INFO = {
+    **FIRST_LEG_INFO,
+    "h_trn_no": "103",
+    "h_dpt_tm": "100000",
+    "h_arv_tm": "110000",
+    "h_trn_seq": "2",
+}
+SOLD_OUT_SECOND_LEG_INFO = {
+    **SECOND_LEG_INFO,
+    "h_trn_no": "1203",
+    "h_dpt_tm": "112000",
+    "h_arv_tm": "143000",
+    "h_spe_rsv_cd": "00",
+    "h_gen_rsv_cd": "00",
+    "h_trn_seq": "2",
+}
+
+TRANSFER_SEARCH_PAYLOAD = {
+    "strResult": "SUCC",
+    "trn_infos": {"trn_info": [FIRST_LEG_INFO, SECOND_LEG_INFO, LATER_FIRST_LEG_INFO, SOLD_OUT_SECOND_LEG_INFO]},
+}

@@ -19,7 +19,10 @@ from pykorail.models import (
     Station,
     Ticket,
     Train,
+    Transfer,
+    TransferStation,
     parse_stations,
+    parse_transfers,
     train_info_of,
 )
 from pykorail.models.parsing import records
@@ -27,9 +30,12 @@ from pykorail.models.schedule import WAITING_NOT_APPLICABLE, format_duration
 from tests.payloads import (
     CAR_INFO,
     CAR_SEAT_INFO,
+    FIRST_LEG_INFO,
     RESERVATION_INFO,
     SEAT_INFO,
     SEATABLE_TRAIN_INFO,
+    SECOND_LEG_INFO,
+    SOLD_OUT_SECOND_LEG_INFO,
     TICKET_RAW,
     TRAIN_INFO,
 )
@@ -43,6 +49,7 @@ class TestImmutability:
             (Seat.from_response(SEAT_INFO), "seat"),
             (Ticket.from_response(TICKET_RAW), "seat_no"),
             (Reservation.from_response(RESERVATION_INFO), "rsv_id"),
+            (Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO), "first"),
         ],
     )
     def test_models_are_frozen(self, model: object, field: str) -> None:
@@ -623,3 +630,80 @@ class TestRecords:
 
         # then
         assert found == [{"a": "1"}, {"a": "2"}]
+
+
+class TestTransferStation:
+    def test_parses_a_station(self) -> None:
+        # when
+        station = TransferStation.from_response(
+            {"chtnRsStnCd": "0015", "chtnRsStnNm": "대전", "chtnRsStnEngNm": "Daejeon"}
+        )
+
+        # then
+        assert station == TransferStation(code="0015", name="대전", english_name="Daejeon")
+
+    def test_empty_response_does_not_raise(self) -> None:
+        # when
+        station = TransferStation.from_response({})
+
+        # then
+        assert station == TransferStation(code="", name="", english_name="")
+
+
+class TestTransfer:
+    def test_refers_to_two_trains_in_riding_order(self) -> None:
+        # when
+        transfer = Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO)
+
+        # then
+        assert [(leg.train_no, leg.dep_name, leg.arr_name) for leg in transfer.legs] == [
+            ("101", "서울", "대전"),
+            ("1201", "대전", "부산"),
+        ]
+
+    def test_station_name_is_where_the_legs_meet(self) -> None:
+        # when
+        transfer = Transfer.from_response(FIRST_LEG_INFO, SECOND_LEG_INFO)
+
+        # then
+        assert transfer.station_name == "대전"
+
+    def test_station_name_is_none_when_the_legs_do_not_meet(self) -> None:
+        """도착역과 다음 출발역이 다르면 역 사이를 따로 이동해야 합니다. 한쪽을 환승역이라 넘겨짚지 않습니다."""
+        # when
+        transfer = Transfer.from_response(FIRST_LEG_INFO, {**SECOND_LEG_INFO, "h_dpt_rs_stn_nm": "서대전"})
+
+        # then
+        assert transfer.station_name is None
+
+    @pytest.mark.parametrize(
+        ("second", "expected"),
+        [(SECOND_LEG_INFO, True), (SOLD_OUT_SECOND_LEG_INFO, False)],
+        ids=["both-available", "second-sold-out"],
+    )
+    def test_has_seat_needs_both_legs(self, second: dict[str, str], expected: bool) -> None:
+        # when
+        transfer = Transfer.from_response(FIRST_LEG_INFO, second)
+
+        # then
+        assert transfer.has_seat() is expected
+
+
+class TestParseTransfers:
+    def test_groups_rows_by_itinerary_number_in_response_order(self) -> None:
+        # given
+        later_first = {**FIRST_LEG_INFO, "h_trn_no": "103", "h_trn_seq": "2"}
+        later_second = {**SECOND_LEG_INFO, "h_trn_no": "1203", "h_trn_seq": "2"}
+
+        # when
+        transfers = parse_transfers([FIRST_LEG_INFO, later_first, SECOND_LEG_INFO, later_second])
+
+        # then
+        assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201"), ("103", "1203")]
+
+    def test_no_rows_is_no_itineraries(self) -> None:
+        # when
+        transfers = parse_transfers([])
+
+        # then
+        assert transfers == []

@@ -23,6 +23,7 @@ from tests.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
     CAR_INFO,
+    FIRST_LEG_INFO,
     MANY_RESERVATION_IDS,
     MANY_RESERVATIONS_PAYLOAD,
     NEARBY_SEARCH_PAYLOAD,
@@ -34,10 +35,14 @@ from tests.payloads import (
     SEAT_DETAIL_PAYLOAD,
     SEAT_MAP_PAYLOAD,
     SEATABLE_SEARCH_PAYLOAD,
+    SECOND_LEG_INFO,
+    SOLD_OUT_INFO,
     STATION_PAYLOAD,
     TICKET_LIST_PAYLOAD,
     TICKET_SEAT_PAYLOAD,
     TRAIN_INFO,
+    TRANSFER_SEARCH_PAYLOAD,
+    TRANSFER_STATIONS_PAYLOAD,
 )
 
 #: 예약이 여럿인 목록에 좌석 상세를 얹은 라우트. 응답 자체는 payloads 에 있습니다.
@@ -633,6 +638,221 @@ class TestTrainSearch:
         params = session.kwargs_for("search_schedule")["params"]
         assert params["Sid"] == ""
         assert "Key" not in params
+
+
+#: 환승 조회를 돌리는 라우트. 같은 엔드포인트가 여정 종류에 따라 다른 모양을 줍니다.
+TRANSFER_ROUTES = {"stationdata": STATION_PAYLOAD, "search_schedule": TRANSFER_SEARCH_PAYLOAD}
+
+
+def transfer_page(*rows: dict[str, str]) -> dict[str, object]:
+    return {"stationdata": STATION_PAYLOAD, "search_schedule": search_page(*rows)}
+
+
+class TestTransferStations:
+    """환승역 — ``qry.chtnStn.do``."""
+
+    def test_lists_the_stations_to_change_at(self, korail) -> None:
+        # given
+        client, _ = korail
+
+        # when
+        stations = client.trains.transfer_stations("서울", "부산")
+
+        # then
+        assert [(s.code, s.name, s.english_name) for s in stations] == [("0015", "대전", "Daejeon")]
+
+    def test_sends_exact_form_fields(self, korail) -> None:
+        """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
+        # given
+        client, session = korail
+
+        # when
+        client.trains.transfer_stations("서울", "부산")
+
+        # then
+        assert set(session.kwargs_for("transfer_stations")["data"]) == {
+            "Device",
+            "Version",
+            "AppVersion",
+            "Key",
+            "dptRsStnCd",
+            "arvRsStnCd",
+        }
+
+    def test_sends_station_codes_not_names(self, korail) -> None:
+        # given
+        client, session = korail
+
+        # when
+        client.trains.transfer_stations("서울", "부산")
+
+        # then
+        data = session.kwargs_for("transfer_stations")["data"]
+        assert (data["dptRsStnCd"], data["arvRsStnCd"]) == ("0001", "0020")
+
+    def test_goes_in_the_form_body_and_unsigned(self, korail) -> None:
+        # given
+        client, session = korail
+
+        # when
+        client.trains.transfer_stations("서울", "부산")
+
+        # then
+        kwargs = session.kwargs_for("transfer_stations")
+        assert "params" not in kwargs
+        assert "x-dynapath-m-token" not in kwargs.get("headers", {})
+
+    def test_unknown_station_is_rejected_before_the_request(self, korail) -> None:
+        # given
+        client, session = korail
+
+        # when & then
+        with pytest.raises(StationNotFoundError):
+            client.trains.transfer_stations("서울", "부산역")
+        assert API_ENDPOINTS["transfer_stations"] not in session.urls()
+
+    def test_needs_the_station_master_even_when_validation_is_off(self, make_korail) -> None:
+        """역을 코드로 보내야 해서, 검증을 꺼도 역 마스터는 봅니다."""
+        # given
+        routes = {"stationdata": STATION_PAYLOAD, "transfer_stations": TRANSFER_STATIONS_PAYLOAD}
+        client, session = make_korail(routes, validate_stations=False)
+
+        # when
+        client.trains.transfer_stations("서울", "부산")
+
+        # then
+        assert session.urls() == [API_ENDPOINTS["stationdata"], API_ENDPOINTS["transfer_stations"]]
+
+    @pytest.mark.parametrize(
+        "body",
+        [{"strResult": "SUCC"}, {"strResult": "SUCC", "chtnList": None}, {"strResult": "SUCC", "chtnList": []}],
+        ids=["absent", "null", "empty"],
+    )
+    def test_no_stations_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({"stationdata": STATION_PAYLOAD, "transfer_stations": body})
+
+        # when
+        stations = client.trains.transfer_stations("서울", "부산")
+
+        # then
+        assert stations == []
+
+
+class TestTransferSearch:
+    """환승 여정 — 직통 조회와 같은 엔드포인트, 여정 종류만 다릅니다."""
+
+    def test_pairs_the_two_legs_of_an_itinerary(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(TRANSFER_ROUTES)
+
+        # when
+        transfers = client.trains.search_transfers("서울", "부산")
+
+        # then
+        assert [(t.first.train_no, t.station_name, t.second.train_no) for t in transfers] == [("101", "대전", "1201")]
+
+    def test_itinerary_with_a_sold_out_leg_is_hidden_by_default(self, make_korail) -> None:
+        """한 구간만 좌석이 있어서는 여정을 탈 수 없습니다."""
+        # given
+        client, _ = make_korail(TRANSFER_ROUTES)
+
+        # when
+        transfers = client.trains.search_transfers("서울", "부산")
+
+        # then
+        assert [t.second.train_no for t in transfers] == ["1201"]
+
+    def test_include_no_seats_returns_every_itinerary(self, make_korail) -> None:
+        # given
+        client, _ = make_korail(TRANSFER_ROUTES)
+
+        # when
+        transfers = client.trains.search_transfers("서울", "부산", include_no_seats=True)
+
+        # then
+        assert [(t.first.train_no, t.second.train_no) for t in transfers] == [("101", "1201"), ("103", "1203")]
+
+    def test_differs_from_a_direct_search_only_in_the_journey_kind(self, make_korail) -> None:
+        """같은 요청에 여정 종류만 환승입니다 — 다른 필드가 달라지면 서버는 다른 조회로 봅니다."""
+        # given
+        client, session = make_korail(TRANSFER_ROUTES)
+
+        # when
+        client.trains.search("서울", "부산", depart_after=FUTURE, include_no_seats=True)
+        client.trains.search_transfers("서울", "부산", depart_after=FUTURE)
+
+        # then
+        direct, transfer = (call["params"] for call in session.all_kwargs_for("search_schedule"))
+        changed = {key: (direct[key], transfer[key]) for key in direct if direct[key] != transfer[key]}
+        assert changed == {"radJobId": ("1", "2")}
+        assert list(direct) == list(transfer)
+
+    def test_is_signed_like_a_direct_search(self, make_korail) -> None:
+        # given
+        client, session = make_korail(TRANSFER_ROUTES)
+
+        # when
+        client.trains.search_transfers("서울", "부산")
+
+        # then
+        assert "x-dynapath-m-token" in session.kwargs_for("search_schedule")["headers"]
+
+    @pytest.mark.parametrize(
+        "rows",
+        [
+            (FIRST_LEG_INFO,),
+            (FIRST_LEG_INFO, SECOND_LEG_INFO, {**SECOND_LEG_INFO, "h_trn_no": "1205"}),
+            ({**FIRST_LEG_INFO, "h_trn_seq": ""}, {**SECOND_LEG_INFO, "h_trn_seq": ""}),
+            (TRAIN_INFO, SOLD_OUT_INFO),
+        ],
+        ids=["lone-leg", "three-legs", "blank-sequence", "no-sequence-field"],
+    )
+    def test_rows_that_do_not_pair_up_are_not_itineraries(self, make_korail, rows: tuple[dict[str, str], ...]) -> None:
+        """무엇과 짝인지 모르는 행을 넘겨짚어 이으면 갈아탈 수 없는 여정이 만들어집니다."""
+        # given
+        client, _ = make_korail(transfer_page(*rows))
+
+        # when & then
+        with pytest.raises(NoResultsError):
+            client.trains.search_transfers("서울", "부산", include_no_seats=True)
+
+    def test_server_no_results_propagates(self, make_korail) -> None:
+        # given
+        client, _ = make_korail({"stationdata": STATION_PAYLOAD, "search_schedule": NO_RESULTS})
+
+        # when & then
+        with pytest.raises(NoResultsError):
+            client.trains.search_transfers("서울", "부산")
+
+    def test_unknown_station_is_rejected_before_the_search(self, make_korail) -> None:
+        # given
+        client, session = make_korail(TRANSFER_ROUTES)
+
+        # when & then
+        with pytest.raises(StationNotFoundError):
+            client.trains.search_transfers("서울역", "부산")
+        assert API_ENDPOINTS["search_schedule"] not in session.urls()
+
+    def test_skips_the_station_master_when_validation_is_off(self, make_korail) -> None:
+        # given
+        client, session = make_korail({"search_schedule": TRANSFER_SEARCH_PAYLOAD}, validate_stations=False)
+
+        # when
+        client.trains.search_transfers("서울", "부산")
+
+        # then
+        assert session.urls() == [API_ENDPOINTS["search_schedule"]]
+
+    def test_past_departure_is_rejected_before_the_search(self, make_korail) -> None:
+        # given
+        client, session = make_korail(TRANSFER_ROUTES)
+        long_gone = datetime.now(KST) - timedelta(hours=3)
+
+        # when & then
+        with pytest.raises(PastDepartureError):
+            client.trains.search_transfers("서울", "부산", depart_after=long_gone)
+        assert API_ENDPOINTS["search_schedule"] not in session.urls()
 
 
 class TestSeatCars:
