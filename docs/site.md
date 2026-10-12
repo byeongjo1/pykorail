@@ -119,7 +119,8 @@ npm run dev        # http://localhost:4321/
 
 ## CI
 
-`.github/workflows/site.yml` 이 `site/` 나 위 원본 문서를 건드린 PR 에서 같은 빌드와 링크
-검사를 돌립니다. 경로 필터가 있어 필수 체크는 아닙니다 — 필수는 계속 `ci-ok` 하나입니다.
+`.github/workflows/site.yml` 이 `site/` 나 위 원본 문서를 건드린 PR 에서 `npm run check`
+(astro check)와 같은 빌드 · 링크 검사를 돌립니다. 경로 필터가 있어 필수 체크는 아닙니다 —
+필수는 계속 `ci-ok` 하나입니다.
 다만 `ci.yml` 의 Trivy 는 저장소 전체를 보므로 `site/package-lock.json` 의 HIGH · CRITICAL
 취약점은 `ci-ok` 를 막습니다. 그래서 Dependabot 이 `site/` 의 npm 의존성도 범프합니다.

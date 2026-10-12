@@ -59,6 +59,10 @@ jobs:
       - name: 의존성 취약점 검사
         run: npm audit --omit=dev --audit-level=moderate
 
+      - name: Astro 진단 (astro check)
+        # 빌드는 타입 오류가 있어도 통과합니다. 컴포넌트 · stats.ts 의 타입 오류는 여기서만 잡힙니다.
+        run: npm run check
+
       - name: 빌드 + 내부 링크 검사
         # package.json 의 "build" 가 sync-docs → astro build → check-links 를 차례로 돌립니다.
         run: npm run build
