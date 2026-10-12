@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pykorail.constants import API_ENDPOINTS, APP_VERSION, DEVICE, KST_OFFSET_HOURS
 from pykorail.exceptions import NoResultsError, PastDepartureError
@@ -19,6 +19,7 @@ from pykorail.models.passenger import (
     ToddlerPassenger,
 )
 from pykorail.models.schedule import Train
+from pykorail.models.transfer import Transfer, TransferStation, parse_transfers
 from pykorail.options import SeatClass, TrainType
 from pykorail.resources.base import Resource, without_blanks
 
@@ -40,6 +41,10 @@ PAST_TOLERANCE = timedelta(minutes=1)
 #: 값은 오타이거나 과한 자동 요청이라 요청 전에 막습니다 — 쪽마다 요청이 한 번씩 나가고,
 #: 코레일은 과도한 자동 요청에 계정을 제재합니다.
 MAX_PAGES = 20
+
+#: 조회의 여정 종류 (``radJobId``). 같은 엔드포인트가 이 값으로 직통과 환승을 가릅니다.
+_DIRECT = "1"
+_TRANSFER = "2"
 
 
 def to_kst(moment: datetime | None) -> datetime:
@@ -150,7 +155,21 @@ class TrainResource(Resource):
         passengers: Sequence[Passenger],
         include_nearby_stations: bool,
     ) -> list[Train]:
-        """``moment`` 부터의 조회 결과 한 쪽. 필터를 거치지 않은 서버 응답 그대로입니다."""
+        """``moment`` 부터의 직통 조회 결과 한 쪽. 필터를 거치지 않은 서버 응답 그대로입니다."""
+        rows = self._rows(dep, arr, moment, train_type, passengers, include_nearby_stations, _DIRECT)
+        return [Train.from_response(row) for row in rows]
+
+    def _rows(
+        self,
+        dep: str,
+        arr: str,
+        moment: datetime,
+        train_type: TrainTypeCode,
+        passengers: Sequence[Passenger],
+        include_nearby_stations: bool,
+        job: str,
+    ) -> list[dict[str, Any]]:
+        """조회 요청 한 번의 열차 행들. ``job`` 이 직통(:data:`_DIRECT`) · 환승(:data:`_TRANSFER`)을 가릅니다."""
 
         def total(passenger_type: type[Passenger]) -> int:
             return sum(p.count for p in passengers if isinstance(p, passenger_type))
@@ -163,7 +182,7 @@ class TrainResource(Resource):
             "Version": APP_VERSION,
             "Sid": "",
             "txtMenuId": "11",
-            "radJobId": "1",
+            "radJobId": job,
             "selGoTrain": train_type,
             "txtTrnGpCd": train_type,
             "txtGoStart": dep,
@@ -188,7 +207,7 @@ class TrainResource(Resource):
         payload = self._api.post(url, params=data, headers=headers)
         self._api.check(payload)
 
-        return [Train.from_response(info) for info in records(payload, "trn_infos", "trn_info")]
+        return records(payload, "trn_infos", "trn_info")
 
     @staticmethod
     def _identity(train: Train) -> tuple[str, ...]:
@@ -202,6 +221,69 @@ class TrainResource(Resource):
             return datetime.strptime(train.dep_date + train.dep_time, "%Y%m%d%H%M%S").replace(tzinfo=KST)
         except ValueError:
             return None
+
+    def transfer_stations(self, dep: str, arr: str) -> list[TransferStation]:
+        """두 역 사이에서 갈아탈 수 있는 역들을 조회합니다. 로그인하지 않아도 됩니다.
+
+        요청 필드는 코레일+ 7.0.8 의 ``ChtnStnIn`` 에서 확인했습니다. 역을 **코드**로
+        보내므로 ``validate_stations`` 설정과 무관하게 역 마스터를 봅니다.
+
+        Raises:
+            StationNotFoundError: ``dep``/``arr`` 이 역 마스터에 없습니다.
+        """
+        self._stations.ensure_exist(dep, arr)
+        codes = {station.name: station.code for station in self._stations.all()}
+
+        url = API_ENDPOINTS["transfer_stations"]
+        headers, _ = self._api.sign(url)
+        form = without_blanks({**self._api.common_payload(), "dptRsStnCd": codes[dep], "arvRsStnCd": codes[arr]})
+
+        payload = self._api.post(url, data=form, headers=headers)
+        self._api.check(payload)
+
+        return [TransferStation.from_response(info) for info in records(payload, "chtnList")]
+
+    def search_transfers(
+        self,
+        dep: str,
+        arr: str,
+        depart_after: datetime | None = None,
+        train_type: TrainTypeCode = TrainType.ALL,
+        passengers: Sequence[Passenger] | None = None,
+        include_no_seats: bool = False,
+    ) -> list[Transfer]:
+        """한 번 갈아타는 여정을 조회합니다. 직통이 없는 구간에서 씁니다.
+
+        :meth:`search` 와 같은 요청이고 여정 종류(``radJobId``)만 환승입니다. 응답의 열차
+        행을 여정 단위로 묶어 돌려줍니다 — 묶는 규칙은
+        :func:`~pykorail.models.transfer.parse_transfers` 에 있습니다.
+
+        Args:
+            dep: 출발역 이름.
+            arr: 도착역 이름.
+            depart_after: 이 시각 이후 출발. :meth:`search` 와 같은 규칙으로 KST 로 봅니다.
+            train_type: :class:`~pykorail.options.TrainType` 코드.
+            passengers: 생략하면 어른 1명.
+            include_no_seats: 한 구간이라도 매진인 여정까지 포함합니다. 기본은 두 구간
+                모두 좌석이 있는 여정만.
+
+        Raises:
+            StationNotFoundError: ``dep``/``arr`` 이 역 마스터에 없습니다.
+            PastDepartureError: ``depart_after`` 가 이미 지난 시각입니다.
+            NoResultsError: 조건에 맞는 환승 여정이 없습니다.
+        """
+        if self.validate_stations:
+            self._stations.ensure_exist(dep, arr)
+
+        moment = to_kst(depart_after)
+        self._ensure_not_past(moment)
+        reduced = Passenger.reduce(passengers or [AdultPassenger()])
+
+        rows = self._rows(dep, arr, moment, train_type, reduced, False, _TRANSFER)
+        transfers = [transfer for transfer in parse_transfers(rows) if include_no_seats or transfer.has_seat()]
+        if not transfers:
+            raise NoResultsError()
+        return transfers
 
     def cars(
         self,

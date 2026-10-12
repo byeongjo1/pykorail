@@ -64,6 +64,8 @@ from pykorail.models import (
     Ticket,
     ToddlerPassenger,
     Train,
+    Transfer,
+    TransferStation,
 )
 from pykorail.options import ReserveOption, ReserveOptionCode, SeatClass, SeatClassCode, TrainType, TrainTypeCode
 
@@ -131,6 +133,8 @@ __all__ = [
     "Train",
     "TrainType",
     "TrainTypeCode",
+    "Transfer",
+    "TransferStation",
     "TransportError",
     "__version__",
     "profile_by_id",

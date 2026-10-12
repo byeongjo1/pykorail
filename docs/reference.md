@@ -154,6 +154,46 @@ from_yongsan = [t for t in trains if t.dep_name == "용산"]
 > `depart_after` 는 실행 머신의 로컬 타임존과 무관하게 항상 KST 로 해석됩니다.
 > UTC 서버에서 돌려도 `datetime(2026, 4, 1, 9)` 는 한국시간 오전 9시입니다.
 
+#### 환승 조회
+
+직통이 없는 구간은 한 번 갈아타는 여정으로 찾습니다. **로그인하지 않아도 됩니다.**
+
+```python
+search_transfers(
+    dep: str,
+    arr: str,
+    depart_after: datetime | None = None,
+    train_type: TrainTypeCode = TrainType.ALL,
+    passengers: Sequence[Passenger] | None = None,
+    include_no_seats: bool = False,
+) -> list[Transfer]
+
+transfer_stations(dep: str, arr: str) -> list[TransferStation]
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `dep` · `arr` · `depart_after` · `train_type` · `passengers` | `search` 와 같습니다. |
+| `include_no_seats` | 한 구간이라도 매진인 여정까지 포함. 기본은 **두 구간 모두** 좌석이 있는 여정만. |
+
+```python
+for transfer in korail.trains.search_transfers("강릉", "목포"):
+    first, second = transfer.legs
+    print(first.train_no, first.dep_time, "→", transfer.station_name, "→", second.train_no, second.arr_time)
+
+print([station.name for station in korail.trains.transfer_stations("강릉", "목포")])
+```
+
+`search_transfers` 는 `search` 와 **같은 요청**이고 여정 종류만 환승입니다. 조건에 맞는 여정이
+없으면 `NoResultsError` 를 던집니다. `transfer_stations` 는 역을 코드로 보내므로
+`validate_stations` 를 꺼도 역 마스터를 한 번 조회합니다.
+
+> [!NOTE]
+> 응답에서 짝이 분명한 두 구간만 여정으로 돌려줍니다. 무엇과 짝인지 알 수 없는 열차는
+> 넘겨짚어 잇지 않고 버립니다 — **두 번 갈아타는 여정도 지금은 버립니다.** 버린 것이
+> 있으면 `pykorail.models.transfer` 로거에 경고가 남습니다. `TransferStation.english_name`
+> 은 서버가 빼고 줄 때가 있어 빈 문자열일 수 있습니다.
+
 #### 호차 · 좌석 조회
 
 좌석을 직접 고르기 위한 조회입니다. **둘 다 로그인이 필요합니다.**
@@ -311,6 +351,21 @@ if fee.refundable and fee.fee < 10000:
 | `passenger_type` | 어른 / 어린이 … |
 | `price` · `original_price` · `discount` | 결제액 · 정가 · 할인액 |
 | `is_waiting` (속성) | 좌석번호가 비어 있으면 예약대기 자리 |
+
+### `Transfer`
+
+`korail.trains.search_transfers()` 가 돌려주는 환승 여정 하나입니다. 열차를 상속하지 않고
+**참조**합니다.
+
+| 필드 · 속성 | 타입 | 설명 |
+| --- | --- | --- |
+| `legs` | `tuple[Train, ...]` | 타는 순서대로 구간들. 지금은 항상 둘입니다 |
+| `first` · `second` | `Train` (속성) | 처음 타는 열차 · 갈아탄 뒤의 열차 |
+| `station_name` | `str \| None` (속성) | 갈아타는 역 이름. 첫 열차의 도착역과 둘째 열차의 출발역이 다르면 `None` |
+| `has_seat()` | `bool` (메서드) | 두 구간 **모두** 좌석이 있는지 |
+
+`TransferStation` 은 `korail.trains.transfer_stations()` 가 돌려주는 환승 가능 역입니다 —
+`code` (`"0015"`) · `name` (`"대전"`) · `english_name` (`"Daejeon"`).
 
 ### `Car`
 

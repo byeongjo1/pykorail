@@ -21,6 +21,7 @@ from tests.payloads import (
     STATION_PAYLOAD,
     TICKET_LIST_PAYLOAD,
     TICKET_SEAT_PAYLOAD,
+    TRANSFER_STATIONS_PAYLOAD,
 )
 
 
@@ -125,6 +126,7 @@ def korail(make_korail) -> tuple[Korail, FakeSession]:
             "search_schedule": SEARCH_PAYLOAD,
             "seat_cars": SEAT_CARS_PAYLOAD,
             "seat_map": SEAT_MAP_PAYLOAD,
+            "transfer_stations": TRANSFER_STATIONS_PAYLOAD,
             "myreservationview": RESERVATION_LIST_PAYLOAD,
             "myreservationlist": SEAT_DETAIL_PAYLOAD,
             "myticketlist": TICKET_LIST_PAYLOAD,

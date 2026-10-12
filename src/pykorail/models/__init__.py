@@ -29,6 +29,7 @@ from pykorail.models.schedule import Schedule, Train
 from pykorail.models.seat import Seat
 from pykorail.models.station import Station, parse_stations
 from pykorail.models.ticket import Ticket, train_info_of
+from pykorail.models.transfer import Transfer, TransferStation, parse_transfers
 
 __all__ = [
     "AdultPassenger",
@@ -49,6 +50,9 @@ __all__ = [
     "Ticket",
     "ToddlerPassenger",
     "Train",
+    "Transfer",
+    "TransferStation",
     "parse_stations",
+    "parse_transfers",
     "train_info_of",
 ]
