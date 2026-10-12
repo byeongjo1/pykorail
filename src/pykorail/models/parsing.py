@@ -37,6 +37,23 @@ def floating(data: dict[str, Any], key: str, default: float | None = None) -> fl
         return default
 
 
+def records(data: dict[str, Any], *path: str) -> list[dict[str, Any]]:
+    """``path`` 를 따라 들어간 곳의 목록을 읽습니다. 없으면 빈 목록.
+
+    코레일은 목록을 ``{"x_infos": {"x_info": [...]}}`` 처럼 한 겹 싸서 주고, 결과가
+    없으면 키를 빼거나 ``null`` 을 넣거나 목록 자리에 다른 것을 보냅니다. 어느 쪽이든
+    빈 목록으로 읽고, 목록 안에서도 dict 가 아닌 항목은 건너뜁니다.
+    """
+    node: Any = data
+    for key in path:
+        if not isinstance(node, dict):
+            return []
+        node = node.get(key)
+    if not isinstance(node, list):
+        return []
+    return [item for item in node if isinstance(item, dict)]
+
+
 def hhmm(value: str) -> str:
     """``HHMMSS`` → ``HH:MM``. 형식이 안 맞으면 원본을 그대로 돌려줍니다."""
     if len(value) < 4 or not value[:4].isdigit():

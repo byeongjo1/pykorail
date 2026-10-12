@@ -47,7 +47,9 @@ from pykorail.exceptions import (
 )
 from pykorail.models import (
     AdultPassenger,
+    Car,
     Card,
+    CarSeat,
     ChildPassenger,
     Disability1To3Passenger,
     Disability4To6Passenger,
@@ -56,13 +58,14 @@ from pykorail.models import (
     Reservation,
     Schedule,
     Seat,
+    SeatAttribute,
     SeniorPassenger,
     Station,
     Ticket,
     ToddlerPassenger,
     Train,
 )
-from pykorail.options import ReserveOption, ReserveOptionCode, TrainType, TrainTypeCode
+from pykorail.options import ReserveOption, ReserveOptionCode, SeatClass, SeatClassCode, TrainType, TrainTypeCode
 
 
 def _resolve_version() -> str:
@@ -91,6 +94,8 @@ __version__ = _resolve_version()
 __all__ = [
     "AccessRestrictedError",
     "AdultPassenger",
+    "Car",
+    "CarSeat",
     "Card",
     "ChildPassenger",
     "DeviceProfile",
@@ -114,6 +119,9 @@ __all__ = [
     "ReserveOptionCode",
     "Schedule",
     "Seat",
+    "SeatAttribute",
+    "SeatClass",
+    "SeatClassCode",
     "SeniorPassenger",
     "SoldOutError",
     "Station",

@@ -237,3 +237,66 @@ ACCESS_RESTRICTED = {
         "정상적인 환경임에도 이용이 제한되는 경우 앱을 완전히 종료한 후 다시 실행해 주시기 바랍니다."
     ),
 }
+
+# ---------------------------------------------------------------- 호차 · 좌석 조회
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고(TrainScheduleOutTrainInfo ·
+# TrainResearchOut · TrainResearchOutCarInfo · TrainResearchOutSeatInfo ·
+# TResidualSeatsResearchOut · TResidualSeatsResearchOutSeat), 값의 **모양**(자릿수 채움,
+# 코드 길이)은 2026-10-12 실서버 조회에서 본 그대로입니다. 값 자체는 예시입니다.
+
+#: 호차 · 좌석 조회에 필요한 필드(운행 순서 · 좌석 속성)까지 내려온 조회 결과 한 편.
+SEATABLE_TRAIN_INFO = {
+    **TRAIN_INFO,
+    "h_dpt_stn_run_ordr": "000001",
+    "h_arv_stn_run_ordr": "000019",
+    "h_seat_att_cd": "015",
+}
+
+SEATABLE_SEARCH_PAYLOAD = {"strResult": "SUCC", "trn_infos": {"trn_info": [SEATABLE_TRAIN_INFO]}}
+
+#: 호차 번호는 네 자리, 좌석 수는 여섯 · 다섯 자리로 0 을 채워 옵니다.
+CAR_INFO = {
+    "h_srcar_no": "0003",
+    "h_seat_cnt": "000058",
+    "h_psrm_cl_cd": "1",
+    "h_psrm_cl_nm": "일반실",
+    "h_rest_seat_cnt": "00019",
+    "seatAttInfos": [{"seatAttCd": "015", "seatAttNm": "일반석"}],
+}
+
+#: 남은 좌석이 없는 호차. 실서버는 ``seatAttInfos`` 를 빈 목록으로 주기도 합니다.
+FULL_CAR_INFO = {**CAR_INFO, "h_srcar_no": "0004", "h_rest_seat_cnt": "00000", "seatAttInfos": []}
+
+SEAT_CARS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRG000000",
+    "h_msg_txt": "정상처리되었습니다",
+    "h_trn_no": "00101",
+    "h_trn_gp_cd": "300",
+    "h_trn_clsf_cd": "00",
+    "h_rcmd_srcar_no": "0003",
+    "srcar_infos": {"srcar_info": [CAR_INFO, FULL_CAR_INFO]},
+}
+
+CAR_SEAT_INFO = {
+    "seat_no": "57",
+    "seat_spec": "15A",
+    "sale_psb_flg": "Y",
+    "dir_seat_att_cd": "009",
+    "rq_seat_att_cd": "015",
+    "etc_seat_att_cd": "000",
+    "sqr_no": "000",
+    "vz_msg_dv_cd": "",
+    "intg_msg_cd": "",
+    "intg_msg": "",
+}
+
+TAKEN_CAR_SEAT_INFO = {**CAR_SEAT_INFO, "seat_no": "58", "seat_spec": "15B", "sale_psb_flg": "N"}
+
+SEAT_MAP_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRG000000",
+    "h_msg_txt": "정상처리되었습니다",
+    "scar_no": "0003",
+    "seatList": [CAR_SEAT_INFO, TAKEN_CAR_SEAT_INFO],
+}

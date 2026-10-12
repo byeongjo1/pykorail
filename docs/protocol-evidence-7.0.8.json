@@ -218,5 +218,148 @@
     "milliseconds_per_100_profiles": 0.47734,
     "entropy_bytes_per_catalog": 3200,
     "decision": "현재 생성 방식을 유지. 성능 보장이 아닌 단일 개발 환경의 참고 측정."
+  },
+  "endpoints_added": {
+    "basis": "경로와 필드 이름은 같은 7.0.8 APK 의 정적 분석(NetworkApi 선언, 요청·응답 모델)에서 확인. 앱이 넣는 값은 문자열 상수가 보호(AppSuit/AlienGuard)돼 있어 읽지 못하므로, korail-mobile-api 2.5.0 의 7.0.8 실서버 검증 기록(docs/verification-708.md, docs/evidence/live-708)에서 성공한 요청의 필드 구성과 대조함.",
+    "limits": [
+      "호차 · 좌석 조회는 아래 live_validation 의 한 차례 실서버 조회로 확인함. 그 밖의 조건(특실, 여러 명, 차종별 차이)은 확인하지 않음.",
+      "DynaPath 서명 대상 경로 집합은 앱에서 보호돼 읽지 못함. 서명 없이 성공한다는 것은 실서버 조회로 확인함.",
+      "좌석 조회의 총 인원(totPsgCnt)에 유아를 넣는지는 확인하지 못함.",
+      "응답 샘플(tests/payloads.py)은 필드 이름이 APK, 값의 모양이 실서버 조회에서 온 것이고 값 자체는 예시."
+    ],
+    "items": [
+      {
+        "resource": "trains.cars",
+        "path": "/classes/com.korail.mobile.research.TrainResearch",
+        "declaration": "NetworkApi.postTrainResearch — @FormUrlEncoded @POST, @FieldMap",
+        "request_model": "TrainResearchIn",
+        "response_models": [
+          "TrainResearchOut",
+          "TrainResearchOutCarInfos",
+          "TrainResearchOutCarInfo",
+          "TrainResearchOutSeatInfo"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "txtMenuId",
+          "txtRunDt",
+          "txtDptDt",
+          "txtTrnNo",
+          "txtDptTm",
+          "txtTrnClsfCd",
+          "txtTrnGpCd",
+          "txtDptRsStnCd",
+          "txtArvRsStnCd",
+          "txtPsrmClCd",
+          "txtSeatAttCd",
+          "txtDptStnRunOrdr",
+          "txtArvStnRunOrdr",
+          "txtTotPsgCnt"
+        ],
+        "fields_not_sent": [
+          "txtCustSrtCd",
+          "txtGdNo"
+        ],
+        "signed": false,
+        "login_required": true
+      },
+      {
+        "resource": "trains.seats",
+        "path": "/classes/com.korail.mobile.research.TResidualSeatsResearch.do",
+        "declaration": "NetworkApi.postTResidualSeatsResearch — @FormUrlEncoded @POST, @FieldMap",
+        "request_model": "TResidualSeatsResearchIn",
+        "response_models": [
+          "TResidualSeatsResearchOut",
+          "TResidualSeatsResearchOutSeat"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "trnClsfCd",
+          "trnGpCd",
+          "runDt",
+          "trnNo",
+          "srcarNo",
+          "psrmClCd",
+          "dptRsStnCd",
+          "arvRsStnCd",
+          "seatAttCd",
+          "dptStnRunOrdr",
+          "arvStnRunOrdr",
+          "totPsgCnt",
+          "isArrow"
+        ],
+        "fields_not_sent": [
+          "gdNo",
+          "ctlDvCd"
+        ],
+        "signed": false,
+        "login_required": true,
+        "note": "같은 세션에서 호차 목록을 먼저 조회하지 않으면 인증 오류가 돌아온 사례가 다른 구현의 실서버 기록에 있음."
+      }
+    ],
+    "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
+    "live_validation": {
+      "observed_at_kst": "2026-10-12",
+      "scope": "사용자가 이 건에 한해 승인한 본인 계정의 읽기 전용 조회. 로그인 → 열차 조회 1회 → 호차 목록 1회 → 좌석 배치 2회 → 로그아웃. 예약 · 결제 없음. 계정 · 개인정보는 기록하지 않음.",
+      "train": {
+        "type": "ITX-새마을",
+        "route": [
+          "서울",
+          "부산"
+        ],
+        "h_trn_no": "1009",
+        "sent_as": "01009"
+      },
+      "results": [
+        {
+          "resource": "trains.cars",
+          "result": "SUCC",
+          "code": "IRG000000",
+          "signed": false,
+          "observed": {
+            "h_srcar_no": [
+              "0001",
+              "0002",
+              "0003",
+              "0005",
+              "0006"
+            ],
+            "h_psrm_cl_cd": "1",
+            "h_seat_cnt": "000058",
+            "h_rest_seat_cnt": "00019",
+            "seatAttInfos": [],
+            "h_rcmd_srcar_no": "0002"
+          }
+        },
+        {
+          "resource": "trains.seats",
+          "srcarNo": "1",
+          "result": "SUCC",
+          "code": "IRG000000",
+          "signed": false,
+          "seats": 60
+        },
+        {
+          "resource": "trains.seats",
+          "srcarNo": "0001",
+          "result": "SUCC",
+          "code": "IRG000000",
+          "signed": false,
+          "seats": 60
+        }
+      ],
+      "findings": [
+        "서버는 호차 번호를 네 자리로 0 을 채워 줌('0001'). 좌석 조회는 '1' 과 '0001' 을 같게 받음 — 두 요청의 응답이 같았음. pykorail 은 서버가 준 문자열을 그대로 돌려보냄.",
+        "호차 목록의 h_psrm_cl_cd 는 요청한 객실 코드와 같았음. 그래서 좌석 조회는 호차의 객실 코드를 그대로 씀.",
+        "조회 결과의 열차번호는 0 을 채우지 않은 채 옴('1009'). 다섯 자리로 채워 보낸 요청이 성공함.",
+        "좌석 응답에는 앱 응답 모델에 없는 seat_remain_count · seat_total_count 가 더 있음. pykorail 은 읽지 않음."
+      ]
+    }
   }
 }

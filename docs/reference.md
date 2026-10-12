@@ -154,6 +154,49 @@ from_yongsan = [t for t in trains if t.dep_name == "용산"]
 > `depart_after` 는 실행 머신의 로컬 타임존과 무관하게 항상 KST 로 해석됩니다.
 > UTC 서버에서 돌려도 `datetime(2026, 4, 1, 9)` 는 한국시간 오전 9시입니다.
 
+#### 호차 · 좌석 조회
+
+좌석을 직접 고르기 위한 조회입니다. **둘 다 로그인이 필요합니다.**
+
+```python
+cars(
+    train: Train,
+    passengers: Sequence[Passenger] | None = None,
+    seat_class: SeatClassCode = SeatClass.GENERAL,
+) -> list[Car]
+
+seats(
+    train: Train,
+    car: Car,
+    passengers: Sequence[Passenger] | None = None,
+    seat_class: SeatClassCode | None = None,
+) -> list[CarSeat]
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `train` | `search` 가 돌려준 열차. |
+| `car` | `cars` 가 돌려준 호차. **같은 로그인 세션에서 받은 것**이어야 합니다. |
+| `passengers` | 생략 시 어른 1명. 두 호출에 같은 값을 넘기세요. |
+| `seat_class` | [`SeatClass`](#seatclass) 코드. `cars` 는 기본 일반실. `seats` 는 생략하면 호차의 객실(`car.seat_class`)을 쓰므로 다시 넘길 필요가 없습니다. 호차에 객실 코드가 없는데 생략하면 `ValueError`. |
+
+```python
+from pykorail import SeatClass
+
+train = korail.trains.search("서울", "부산")[0]
+
+cars = korail.trains.cars(train, seat_class=SeatClass.SPECIAL)
+car = next(car for car in cars if car.has_seat())
+
+seats = korail.trains.seats(train, car)
+print([seat.label for seat in seats if seat.is_available])
+# ['15A', '15D', '14B', …]
+```
+
+> [!NOTE]
+> 순서를 지키세요 — 호차 목록(`cars`) 다음에 좌석 배치(`seats`)입니다. 앱의 화면 순서가
+> 그렇고, 호차 목록 없이 좌석 배치를 바로 조회하면 서버가 인증 오류를 돌려준 사례가 있습니다.
+
 ### `korail.reservations`
 
 | 메서드 | 반환 | 설명 |
@@ -223,6 +266,8 @@ if fee.refundable and fee.fee < 10000:
 | `delay_time` | `str` | 예상 지연 |
 | `special_seat` · `general_seat` | `str` | 좌석 코드 (`"11"` = 가능) |
 | `wait_reserve_flag` | `int` | `9` = 예약대기 가능, `-1` = 미적용 |
+| `dep_run_order` · `arr_run_order` | `str` | 출발 · 도착역의 운행 순서. 호차 · 좌석 조회가 구간을 이 값으로 가리킵니다 |
+| `seat_attribute` | `str` | 이 열차 행의 좌석 속성 코드. 호차 · 좌석 조회에 그대로 돌려보냅니다 |
 
 | 메서드 · 속성 | 반환 | 설명 |
 | --- | --- | --- |
@@ -266,6 +311,36 @@ if fee.refundable and fee.fee < 10000:
 | `passenger_type` | 어른 / 어린이 … |
 | `price` · `original_price` · `discount` | 결제액 · 정가 · 할인액 |
 | `is_waiting` (속성) | 좌석번호가 비어 있으면 예약대기 자리 |
+
+### `Car`
+
+`korail.trains.cars()` 가 돌려주는 호차 하나입니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `car_no` | `str` | 호차 번호. 서버가 준 문자열 그대로입니다 (`"0003"`) |
+| `seat_class` · `seat_class_name` | `str` | 객실 구분 코드 · 이름 (`"1"` / `"일반실"`) |
+| `seat_count` | `int` | 전체 좌석 수 |
+| `remaining_seats` | `int` | 남은 좌석 수 |
+| `attributes` | `tuple[SeatAttribute, ...]` | 이 호차에서 고를 수 있는 좌석 속성 |
+| `has_seat()` | `bool` (메서드) | 남은 좌석이 있는지 |
+
+`SeatAttribute` 는 좌석 속성 하나입니다 — `code` (`"015"`) 와 `name` (`"일반석"`).
+
+### `CarSeat`
+
+`korail.trains.seats()` 가 돌려주는 좌석 하나입니다. 예약이 끝난 뒤의 배정 좌석인
+[`Seat`](#seat) 과는 다릅니다 — 아직 팔리지 않았을 수도 있는 좌석 배치입니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `car_no` | `str` | 호차 번호 (`"0003"`) |
+| `seat_no` | `str` | 좌석 **식별자** (`"57"`). 좌석을 가리킬 때는 이 값을 씁니다 |
+| `label` | `str` | 화면에 보이는 좌석 표시 (`"15A"`) |
+| `sale_flag` | `str` | 판매 가능 표시 (`"Y"` = 가능) |
+| `is_available` | `bool` (속성) | 지금 살 수 있는 좌석인지 |
+| `direction` · `attribute` · `extra_attribute` | `str` | 방향 · 요청 좌석 · 기타 속성 코드 |
+| `message` | `str` | 좌석에 붙은 안내 문구 |
 
 ### `Station`
 
@@ -357,6 +432,15 @@ Passenger.reduce([AdultPassenger(1), ChildPassenger(1), AdultPassenger(2)])
 | `SPECIAL_FIRST` | 특실 우선, 없으면 일반실 | 특실 |
 | `GENERAL_ONLY` | 일반실만 | 일반실 |
 | `SPECIAL_ONLY` | 특실만 | 특실 |
+
+### `SeatClass`
+
+호차 · 좌석 조회의 객실 구분입니다. 타입 별칭은 `SeatClassCode` 입니다.
+
+| 이름 | 코드 |
+| --- | --- |
+| `GENERAL` (기본) | `1` |
+| `SPECIAL` | `2` |
 
 ## 예외
 

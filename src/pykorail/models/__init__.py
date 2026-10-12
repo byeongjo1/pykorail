@@ -1,7 +1,7 @@
 """응답 모델과 요청 파라미터 객체.
 
 응답 모델(:class:`Schedule`·:class:`Train`·:class:`Ticket`·:class:`Reservation`·
-:class:`Seat`·:class:`Station`)은 모두 **불변 데이터클래스**이고 ``from_response``
+:class:`Seat`·:class:`Station`·:class:`Car`·:class:`CarSeat`)은 모두 **불변 데이터클래스**이고 ``from_response``
 클래스메서드로만 만듭니다. 생성자는 값 조립, 응답 해석은 ``from_response`` 로
 일관되게 갈라져 있습니다.
 
@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from pykorail.models.car import Car, CarSeat, SeatAttribute
 from pykorail.models.card import Card
 from pykorail.models.passenger import (
     AdultPassenger,
@@ -31,6 +32,8 @@ from pykorail.models.ticket import Ticket, train_info_of
 
 __all__ = [
     "AdultPassenger",
+    "Car",
+    "CarSeat",
     "Card",
     "ChildPassenger",
     "Disability1To3Passenger",
@@ -40,6 +43,7 @@ __all__ = [
     "Reservation",
     "Schedule",
     "Seat",
+    "SeatAttribute",
     "SeniorPassenger",
     "Station",
     "Ticket",
