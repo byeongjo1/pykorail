@@ -21,8 +21,8 @@ PYPROJECT_TEXT = PYPROJECT.read_text(encoding="utf-8")
 def _project_field(name: str) -> str:
     """``pyproject.toml`` 의 최상위 문자열 필드를 읽습니다.
 
-    ``tomllib`` 은 3.11+ 라 3.10 에서 못 쓰고, 이 하나 때문에 ``tomli`` 를 의존성에
-    넣고 싶지도 않아 정규식으로 읽습니다.
+    문자열 필드 몇 개를 읽는 데는 정규식으로 충분합니다. 3.10 을 지원하던 때는
+    ``tomllib`` 을 쓸 수 없어서였고, 이제는 쓸 수 있으니 읽을 것이 늘면 바꾸세요.
     """
     match = re.search(rf'^{name} = "([^"]+)"', PYPROJECT_TEXT, re.M)
     assert match is not None, f"pyproject.toml 에 {name} 이 없습니다"
@@ -110,7 +110,7 @@ class TestMetadata:
         # then
         assert target == "py{}{}".format(*MIN_PYTHON)
 
-    @pytest.mark.parametrize("minor", [10, 11, 12, 13, 14])
+    @pytest.mark.parametrize("minor", [11, 12, 13, 14])
     def test_declares_a_classifier_for_each_supported_minor(self, minor: int) -> None:
         """CI 매트릭스와 classifier 가 어긋나면 사용자가 지원 범위를 오해합니다."""
         # when & then
@@ -145,4 +145,4 @@ class TestWorkflows:
         text = (self.WORKFLOWS / name).read_text(encoding="utf-8")
 
         # when & then
-        assert '"3.10", "3.11", "3.12", "3.13", "3.14"' in text
+        assert 'python: ["3.11", "3.12", "3.13", "3.14"]' in text

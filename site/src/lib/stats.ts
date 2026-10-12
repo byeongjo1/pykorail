@@ -75,7 +75,7 @@ async function loadPackageStats(): Promise<PackageStats> {
   const [pypi, totalDownloads] = await Promise.all([fetchJson(PYPI), fetchTotalDownloads()]);
   const version = dig(pypi, "info", "version");
   const requires = dig(pypi, "info", "requires_python");
-  // ">=3.10" 꼴만 "3.10+" 로 줄여 보여 줍니다. 상한이 붙는 등 모양이 달라지면 틀린 말을 하느니 뺍니다.
+  // ">=3.11" 꼴만 "3.11+" 로 줄여 보여 줍니다. 상한이 붙는 등 모양이 달라지면 틀린 말을 하느니 뺍니다.
   const floor = typeof requires === "string" ? /^>=\s*(\d+\.\d+)$/.exec(requires.trim()) : null;
   return {
     version: typeof version === "string" ? version : undefined,

@@ -126,8 +126,9 @@ client.py  (Korail — 로그인/로그아웃/연결 수명만)
 
 ## 4. Python 규약
 
-- **최소 버전 3.10.** `pyproject.toml` 의 `requires-python` 과 `_compat.py` 런타임
-  가드가 함께 막습니다. 3.10 에 없는 문법(`type` 문, 3.12 제네릭 등)을 쓰지 마세요.
+- **최소 버전 3.11.** `pyproject.toml` 의 `requires-python` 과 `_compat.py` 런타임
+  가드가 함께 막습니다. 3.11 에 없는 문법(`type` 문, 3.12 제네릭, `@override` 등)을
+  쓰지 마세요.
 - **모든 모듈은 `from __future__ import annotations` 로 시작.** 어노테이션이 지연
   평가돼야 순환 import 없이 타입을 쓸 수 있습니다.
 - **공개 함수·메서드에는 전부 타입 힌트.** `Any` 는 경계(응답 dict, `**kwargs`)에만.
@@ -251,7 +252,7 @@ def test_individual_by_default(self) -> None:
 
 ## 6. CI/CD
 
-- **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.10–3.14** 테스트,
+- **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.11–3.14** 테스트,
   빌드·설치 확인, Trivy 스캔. **전부 우분투에서만 돕니다** — `src/` 에 플랫폼 분기가
   없고, Windows 러너가 실제로 잡아주던 인코딩 기본값 문제는 `tests/test_style.py`
   의 `test_text_io_declares_encoding` 이 AST 로 대신합니다.

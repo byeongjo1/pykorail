@@ -87,7 +87,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -251,7 +251,7 @@ jobs:
           \`\`\`
 
           - PyPI: https://pypi.org/project/pykorail/${VERSION}/
-          - 지원 파이썬: 3.10 – 3.14
+          - 지원 파이썬: 3.11 – 3.14
           EOF
 
           # `--generate-notes` 가 위 내용 뒤에 PR·커밋 기반 변경 목록을 붙입니다
