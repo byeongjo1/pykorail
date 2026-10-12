@@ -21,7 +21,7 @@
 
 ## 로컬에서 보기
 
-Node 22 이상 (`site/.nvmrc`).
+Node 22.12 이상 (`site/package.json` 의 `engines`). `site/.nvmrc` 는 22 계열 최신을 고릅니다.
 
 ```sh
 cd site
