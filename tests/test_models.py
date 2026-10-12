@@ -661,6 +661,13 @@ class TestTransfer:
             ("1201", "대전", "부산"),
         ]
 
+    @pytest.mark.parametrize("rows", [[], [FIRST_LEG_INFO]], ids=["none", "one"])
+    def test_rejects_fewer_than_two_legs(self, rows: list[dict[str, str]]) -> None:
+        """하나짜리를 받아 두면 second 를 읽을 때에야 IndexError 로 터집니다."""
+        # when & then
+        with pytest.raises(ValueError, match="구간"):
+            Transfer.from_response(rows)
+
     def test_station_name_is_where_the_legs_meet(self) -> None:
         # when
         transfer = Transfer.from_response([FIRST_LEG_INFO, SECOND_LEG_INFO])

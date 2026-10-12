@@ -48,6 +48,12 @@ class Transfer:
 
     legs: tuple[Train, ...]
 
+    def __post_init__(self) -> None:
+        # 갈아타는 여정은 구간이 둘은 있어야 합니다. 하나짜리를 받아 두면 만들 때는 조용하다가
+        # second 를 읽는 순간에야 IndexError 로 터집니다.
+        if len(self.legs) < _LEGS:
+            raise ValueError(f"환승 여정에는 구간이 {_LEGS}개 이상 필요합니다: {len(self.legs)}개")
+
     @classmethod
     def from_response(cls, rows: Sequence[dict[str, Any]]) -> Transfer:
         """한 여정으로 묶인 행들에서 만듭니다. 타는 순서대로 넘기세요 — 묶고 줄 세우는 일은
