@@ -301,6 +301,47 @@
         "signed": false,
         "login_required": true,
         "note": "같은 세션에서 호차 목록을 먼저 조회하지 않으면 인증 오류가 돌아온 사례가 다른 구현의 실서버 기록에 있음."
+      },
+      {
+        "resource": "trains.transfer_stations",
+        "path": "/classes/com.korail.mobile.qry.chtnStn.do",
+        "declaration": "NetworkApi.postChtnStn — @FormUrlEncoded @POST, @FieldMap",
+        "request_model": "ChtnStnIn",
+        "response_models": [
+          "ChtnStnOut",
+          "ChtnStnOutItem"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "dptRsStnCd",
+          "arvRsStnCd"
+        ],
+        "signed": false,
+        "login_required": false,
+        "verification": "2026-10-12 실서버 조회로 확인 (transfer_live_validation). 서명 없이, 이 폼 그대로 성공함."
+      },
+      {
+        "resource": "trains.search_transfers",
+        "path": "/classes/com.korail.mobile.seatMovie.ScheduleView",
+        "declaration": "기존 조회와 같은 엔드포인트. 여정 종류(radJobId)만 다름.",
+        "request_model": "TrainScheduleIn",
+        "response_models": [
+          "TrainScheduleOut",
+          "TrainScheduleOutTrainInfo"
+        ],
+        "same_form_as": "trains.search",
+        "differs": {
+          "radJobId": {
+            "trains.search": "1",
+            "trains.search_transfers": "2"
+          }
+        },
+        "signed": true,
+        "login_required": false,
+        "verification": "2026-10-12 실서버 조회로 확인 (transfer_live_validation). radJobId=2 가 환승이고, pykorail 의 조회 폼(빈 Sid, Key·AppVersion·qryDvCd 없음) 그대로 성공하며, 여정이 h_trn_seq 로 묶인다는 세 가지가 모두 확인됨."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -359,6 +400,76 @@
         "호차 목록의 h_psrm_cl_cd 는 요청한 객실 코드와 같았음. 그래서 좌석 조회는 호차의 객실 코드를 그대로 씀.",
         "조회 결과의 열차번호는 0 을 채우지 않은 채 옴('1009'). 다섯 자리로 채워 보낸 요청이 성공함.",
         "좌석 응답에는 앱 응답 모델에 없는 seat_remain_count · seat_total_count 가 더 있음. pykorail 은 읽지 않음."
+      ]
+    },
+    "transfer_live_validation": {
+      "observed_at_kst": "2026-10-12",
+      "scope": "사용자가 이 건에 한해 승인한 공개 조회. 로그인 없음. 역 마스터 → 환승역 1회 → 환승 여정 조회 2회(08:00 이후, 05:00 이후) → 같은 구간 직통 조회 1회. 예약 · 결제 없음.",
+      "route": [
+        "강릉",
+        "목포"
+      ],
+      "results": [
+        {
+          "resource": "trains.transfer_stations",
+          "result": "SUCC",
+          "code": "IRZ000001",
+          "signed": false,
+          "observed": {
+            "stations": [
+              "서울",
+              "부전"
+            ],
+            "item_keys": [
+              "chtnRsStnCd",
+              "chtnRsStnNm"
+            ]
+          }
+        },
+        {
+          "resource": "trains.search_transfers",
+          "radJobId": "2",
+          "result": "SUCC",
+          "code": "IRG000000",
+          "signed": true,
+          "observed": {
+            "rows": 6,
+            "h_trn_seq": [
+              "000",
+              "000",
+              "001",
+              "001",
+              "002",
+              "002"
+            ],
+            "h_chg_trn_seq": [
+              "1",
+              "2",
+              "1",
+              "2",
+              "1",
+              "2"
+            ],
+            "h_chg_trn_dv_cd": "2",
+            "h_chg_trn_dv_nm": "환승",
+            "h_next_pg_flg": "N"
+          }
+        },
+        {
+          "resource": "trains.search",
+          "radJobId": "1",
+          "result": "FAIL",
+          "code": "WRD000061",
+          "note": "같은 구간 · 같은 시각의 직통 조회는 결과 없음."
+        }
+      ],
+      "findings": [
+        "radJobId=2 는 환승 조회임. 응답 행마다 h_chg_trn_dv_cd='2', h_chg_trn_dv_nm='환승' 이 붙음. 같은 조건의 radJobId=1 은 결과 없음(WRD000061).",
+        "pykorail 의 조회 폼(빈 Sid, Key · AppVersion · qryDvCd 없음)에 radJobId 만 바꿔도 성공함.",
+        "여정은 h_trn_seq 로 묶임. 값은 세 자리로 0 부터('000', '001', '002'). 한 여정은 정확히 두 행이었음.",
+        "여정 안의 타는 순서는 h_chg_trn_seq('1', '2'). 응답의 줄 순서도 그 순서였음. pykorail 은 이 번호로 구간을 정렬함.",
+        "환승역 응답의 항목에는 chtnRsStnCd · chtnRsStnNm 만 있었고 앱 모델의 chtnRsStnEngNm 은 없었음.",
+        "환승 조회의 h_next_pg_flg 는 'N' 이었고 다음 쪽 값은 비어 있었음. 환승 결과의 쪽 이어 받기는 확인하지 않음."
       ]
     }
   }
