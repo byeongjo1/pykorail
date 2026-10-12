@@ -34,7 +34,7 @@ KST = timezone(timedelta(hours=KST_OFFSET_HOURS))
 #: 조회할 이유가 없습니다.
 PAST_TOLERANCE = timedelta(minutes=1)
 
-#: ``max_pages`` 의 상한. 한 쪽이 열 편이라 하루치 시간표를 덮고도 남습니다. 이보다 큰
+#: ``max_pages`` 의 상한. 한 쪽이 보통 열 편이라 하루치 시간표를 덮고도 남습니다. 이보다 큰
 #: 값은 오타이거나 과한 자동 요청이라 요청 전에 막습니다 — 쪽마다 요청이 한 번씩 나가고,
 #: 코레일은 과도한 자동 요청에 계정을 제재합니다.
 MAX_PAGES = 20
