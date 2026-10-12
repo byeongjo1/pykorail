@@ -1,0 +1,99 @@
+---
+// "알아두면 좋은 것". 승차권의 필드(모노 대문자 라벨 + 값)와 같은 어휘로, 카드 대신 가는 선으로만 나눕니다.
+// 내용은 README 의 같은 이름 표에서 왔습니다.
+const facts = [
+  {
+    label: "STATION",
+    title: "역은 이름으로",
+    body: '<code>"서울역"</code> 이 아니라 <code>"서울"</code>. 오타면 요청 전에 막고 비슷한 역을 알려줍니다.',
+  },
+  {
+    label: "TIMEZONE",
+    title: "시각은 항상 KST",
+    body: "<code>datetime(2026, 4, 1, 9)</code> 는 서버가 어느 타임존이든 한국시간 오전 9시.",
+  },
+  {
+    label: "DEPARTED",
+    title: "지난 시각은 거부",
+    body: "서버가 과거에도 빈 결과만 줘서 “떠난 열차”와 “열차 없음”이 구분되지 않습니다.",
+  },
+  {
+    label: "ERRORS",
+    title: "실패는 예외로",
+    body: "<code>cancel()</code> · <code>pay()</code> 는 성공 시 아무것도 반환하지 않습니다.",
+  },
+];
+---
+
+<div class="pk-facts-wrap not-content">
+  <dl class="pk-facts">
+  {
+    facts.map((fact) => (
+      <div class="pk-fact">
+        <dt>
+          <span class="pk-label">{fact.label}</span>
+          <span class="pk-fact-title">{fact.title}</span>
+        </dt>
+        <dd set:html={fact.body} />
+      </div>
+    ))
+  }
+  </dl>
+</div>
+
+<style>
+  /* 넓으면 승차권 필드처럼 한 줄에 넷, 줄어들면 둘씩, 더 좁으면 하나씩. auto-fit 을 쓰지 않는
+     것은 셋 + 하나로 떨어지는 폭이 생기기 때문입니다. */
+  .pk-facts-wrap {
+    container-type: inline-size;
+    margin-top: 1.5rem;
+  }
+  .pk-facts {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 2rem;
+    margin: 0;
+  }
+  @container (min-width: 34rem) {
+    .pk-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @container (min-width: 58rem) {
+    .pk-facts {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  .pk-fact {
+    padding-block: 1.125rem 1.75rem;
+    border-top: 2px solid var(--sl-color-white);
+  }
+  dt {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .pk-fact-title {
+    font-size: 1.1875rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+    color: var(--sl-color-white);
+  }
+  dd {
+    margin: 0.625rem 0 0;
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--sl-color-gray-2);
+    word-break: keep-all;
+    text-wrap: pretty;
+  }
+  dd :global(code) {
+    padding: 0.125rem 0.3125rem;
+    border-radius: 4px;
+    background: var(--sl-color-bg-inline-code);
+    font-family: var(--sl-font-mono);
+    font-size: 0.8125rem;
+    color: var(--sl-color-white);
+  }
+</style>

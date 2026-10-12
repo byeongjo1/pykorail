@@ -1,0 +1,62 @@
+---
+// 코드와 그 출력을 한 쌍으로 놓습니다. 넓은 화면에서는 좌우로 같은 높이, 좁으면 위아래로 쌓입니다.
+// 슬롯에는 코드 펜스 하나를 넣습니다.
+import Board from "./Board.astro";
+---
+
+<div class="pk-demo not-content">
+  <div class="pk-demo-grid">
+    <div class="pk-pane">
+      <p class="pk-label">CODE</p>
+      <slot />
+    </div>
+    <div class="pk-pane">
+      <p class="pk-label">OUTPUT</p>
+      <Board />
+    </div>
+  </div>
+</div>
+
+<style>
+  /* 컨테이너는 자기 자신을 질의할 수 없어, 바깥이 폭을 재고 안쪽이 격자가 됩니다. */
+  .pk-demo {
+    container-type: inline-size;
+    margin-top: 1.5rem;
+  }
+  .pk-demo-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem 1rem;
+  }
+  .pk-pane {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+  .pk-pane p {
+    margin: 0;
+  }
+  /* 코드 블록이 옆 안내판과 같은 높이까지 늘어나게 합니다. */
+  /* min-width: 0 이 없으면 가장 긴 코드 줄이 칸을 밀어 좁은 화면에서 페이지 밖으로 넘칩니다. */
+  .pk-pane :global(.expressive-code) {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    margin: 0;
+  }
+  .pk-pane :global(.expressive-code .frame) {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .pk-pane :global(.expressive-code pre) {
+    flex: 1;
+  }
+  @container (min-width: 52rem) {
+    .pk-demo-grid {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    }
+  }
+</style>

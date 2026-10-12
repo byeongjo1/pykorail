@@ -1,0 +1,11 @@
+# Cloudflare Workers 정적 자산이 붙이는 응답 헤더 (빌드 산출물에서 읽습니다. 다른 곳에서는 무시됩니다).
+# 프레임에 넣을 수 없고, MIME 스니핑이 안 되고, 독자가 어디서 왔는지 흘리지 않게 합니다.
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
