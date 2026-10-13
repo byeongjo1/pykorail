@@ -63,9 +63,9 @@ class TestMileage:
         mileage = client.membership.mileage()
 
         # then
-        assert [(entry.date, entry.reason, entry.amount) for entry in mileage.entries] == [
-            ("20261003", "승차권 구입", "+2,990"),
-            ("20260921", "승차권 결제", "-1,000"),
+        assert [(entry.date, entry.movement, entry.amount) for entry in mileage.entries] == [
+            ("20261003", "적립", 2990),
+            ("20260921", "사용", -1000),
         ]
         assert mileage.page_count == 3
 
@@ -369,7 +369,7 @@ class TestMileageModel:
         assert (mileage.total, mileage.rail_point) == (100, 9000)
 
     def test_reads_balances_with_thousands_separators(self) -> None:
-        """쉼표가 든 잔액이 0 으로 읽히면 오류 없이 틀린 값이 나갑니다."""
+        """실서버는 쉼표 없이 주지만, 앱이 한 글자를 떼고 읽는 값이라 쉼표가 와도 읽습니다."""
         # when
         mileage = Mileage.from_response({"totAvlRailPontValNum": "12,340", "delPontValNum": "1,200"})
 
@@ -383,20 +383,48 @@ class TestMileageModel:
         # then
         assert mileage == Mileage(ktx=0, samsung_card=0, rail_point=0, expiring=0, info="", page_count=0)
 
-    def test_entry_keeps_the_amount_as_the_server_sent_it(self) -> None:
-        """증감은 표시용 문자열이라 숫자로 바꾸지 않습니다."""
+    def test_reads_an_entry(self) -> None:
         # when
         entry = MileageEntry.from_response(MILEAGE_ENTRY_INFO)
 
         # then
-        assert entry == MileageEntry(date="20261003", kind_name="KTX 마일리지", reason="승차권 구입", amount="+2,990")
+        assert entry == MileageEntry(
+            date="20261003",
+            kind_name="KTX 마일리지",
+            movement="적립",
+            detail="마일리지 적립 (열차이용)",
+            amount=2990,
+        )
+
+    @pytest.mark.parametrize(
+        ("printed", "expected"),
+        [("+2,990", 2990), ("+990", 990), ("-1,000", -1000), ("-500", -500)],
+        ids=["earned", "earned-small", "used", "used-small"],
+    )
+    def test_entry_amount_keeps_its_sign(self, printed: str, expected: int) -> None:
+        """서버는 증감을 부호와 쉼표가 붙은 문자열로 줍니다. 사용은 음수로 읽혀야 합니다."""
+        # when
+        entry = MileageEntry.from_response({**MILEAGE_ENTRY_INFO, "pontAmt": printed})
+
+        # then
+        assert entry.amount == expected
+
+    def test_reads_zero_padded_balances(self) -> None:
+        """실서버는 잔액을 0 을 채운 고정 폭 숫자로 줍니다."""
+        # when
+        mileage = Mileage.from_response(
+            {"totAvlRailPontValNum": "000012340", "delPontValNum": "00000000120", "pgCnt": "00003"}
+        )
+
+        # then
+        assert (mileage.ktx, mileage.expiring, mileage.page_count) == (12340, 120, 3)
 
     def test_entry_with_nothing_is_blank(self) -> None:
         # when
         entry = MileageEntry.from_response({})
 
         # then
-        assert entry == MileageEntry(date="", kind_name="", reason="", amount="")
+        assert entry == MileageEntry(date="", kind_name="", movement="", detail="", amount=0)
 
 
 class TestCouponModel:

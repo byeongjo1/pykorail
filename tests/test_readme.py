@@ -120,7 +120,7 @@ class TestModelFields:
             (Train, ["train_no", "train_type", "run_date", "wait_reserve_flag", "dep_run_order", "seat_attribute"]),
             (Car, ["car_no", "seat_class", "seat_class_name", "seat_count", "remaining_seats", "attributes"]),
             (Mileage, ["ktx", "samsung_card", "rail_point", "expiring", "info", "page_count", "entries"]),
-            (MileageEntry, ["date", "kind_name", "reason", "amount"]),
+            (MileageEntry, ["date", "kind_name", "movement", "detail", "amount"]),
             (Coupon, ["coupon_no", "title", "description", "tag", "valid_from", "valid_until", "guide"]),
             (Transfer, ["legs"]),
             (Fare, ["train_no", "journey_no", "seat_class_name", "price", "charge", "total"]),

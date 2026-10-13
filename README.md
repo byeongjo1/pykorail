@@ -167,7 +167,7 @@ mileage = korail.membership.mileage()
 print(mileage.total, "마일리지,", mileage.expiring, "이번 달 소멸 예정")
 
 for entry in mileage.entries:  # 최근 30일의 적립 · 사용 내역
-    print(entry.date, entry.reason, entry.amount)
+    print(entry.date, entry.movement, entry.amount)  # 20261003 적립 2990
 
 for coupon in korail.membership.coupons():
     print(coupon.title, coupon.valid_until)

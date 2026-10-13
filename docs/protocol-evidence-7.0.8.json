@@ -226,8 +226,8 @@
       "DynaPath 서명 대상 경로 집합은 앱에서 보호돼 읽지 못함. 서명 없이 성공한다는 것은 실서버 조회로 확인함.",
       "좌석 조회의 총 인원(totPsgCnt)에 유아를 넣는지는 확인하지 못함.",
       "응답 샘플(tests/payloads.py)은 필드 이름이 APK, 값의 모양이 실서버 조회에서 온 것이고 값 자체는 예시.",
-      "마일리지 · 할인쿠폰 조회는 pykorail 로 실서버를 호출해 보지 않음. 잔액의 숫자 형식(쉼표 유무), 내역 증감(pontAmt)의 모양, 쿠폰 응답의 값은 확인하지 못함.",
-      "앱은 MyXPointView(xPoint.MyXPointView)를 포인트가 아니라 연락처 · 본인인증 · 복지 정보 표시에 씀. 그 응답의 포인트 필드(h_*_point)는 앱이 읽지 않아 뜻을 확인할 수 없어 넣지 않음. 앱이 보내는 point_dv_cd 는 \"-1\" (PrivacyManagerViewModel, value_recovery)."
+      "앱은 MyXPointView(xPoint.MyXPointView)를 포인트가 아니라 연락처 · 본인인증 · 복지 정보 표시에 씀. 그 응답의 포인트 필드(h_*_point)는 앱이 읽지 않아 뜻을 확인할 수 없어 넣지 않음. 앱이 보내는 point_dv_cd 는 \"-1\" (PrivacyManagerViewModel, value_recovery).",
+      "할인쿠폰은 쿠폰이 없는 계정의 응답만 실서버로 확인함. 쿠폰이 실린 응답의 값 모양은 확인하지 못함."
     ],
     "value_recovery": {
       "what": "보호된 문자열 상수 가운데 십진 정수로 된 것은 평문을 읽을 수 있음.",
@@ -463,19 +463,21 @@
           "pgCnt": "전체 쪽 수",
           "specList[].pontDvNm + ' ' + rcpDvNm": "내역 한 줄의 제목",
           "specList[].dptDt": "내역 한 줄의 날짜",
-          "specList[].pontAmt": "내역 한 줄의 증감. 앱은 받은 문자열을 그대로 보여 줌."
+          "specList[].pontAmt": "내역 한 줄의 증감. 앱은 받은 문자열을 그대로 보여 줌. pykorail 은 부호와 쉼표를 풀어 부호 있는 정수로 읽음 (모양은 membership_live_validation).",
+          "specList[].rcpDvNm": "적립 · 사용 구분 ('적립' · '사용'). 사유가 아님 — 실서버에서 확인.",
+          "specList[].mlgAcmDvCdNm": "서버가 붙인 설명 ('마일리지 적립 (열차이용)' · '코레일'). 앱 화면에는 쓰이지 않지만 실서버 값으로 뜻이 드러나 모델에 실음."
         },
         "not_modelled": [
           "totAcmRailPontValNum1",
           "totUseRailPontValNum1",
+          "railNowSavePontValNum1",
           "qryCnt",
-          "specList[].mlgAcmDvCdNm",
           "specList[].stlAmt",
           "specList[].savePontValNum"
         ],
         "signed": false,
         "login_required": true,
-        "verification": "경로 · 필드 이름 · 구분 코드 값 · 응답 필드의 뜻은 APK. 요청 필드 구성은 참조 구현의 7.0.8 실서버 기록(SUCC/IRZ000001)과 같음. pykorail 로 실서버를 호출해 본 것은 아님."
+        "verification": "2026-10-13 실서버 조회로 확인 (membership_live_validation). pykorail 의 요청 그대로 SUCC/IRZ000001. 서명 없이, 폼 본문으로, mbCrdNo 없이 성공함. 잔액 · 쪽 수 · 내역의 값 모양을 보고 내역 모델을 고침."
       },
       {
         "resource": "membership.coupons",
@@ -521,7 +523,7 @@
         ],
         "signed": false,
         "login_required": true,
-        "verification": "경로 · 필드 이름 · 응답 필드의 뜻은 APK. 요청 필드 구성은 참조 구현의 7.0.8 실서버 기록과 같으나, 그 기록은 쿠폰이 없는 계정의 것(SUCC/WRG000000)이라 쿠폰이 실린 응답은 누구도 확인하지 못함. pykorail 로 실서버를 호출해 본 것은 아님."
+        "verification": "2026-10-13 실서버 조회로 요청을 확인 (membership_live_validation). pykorail 의 요청 그대로 SUCC/WRG000000 — 쿠폰이 없는 계정이라 빈 결과. 쿠폰이 실린 응답의 값은 여전히 누구도 확인하지 못함."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -711,6 +713,107 @@
         "KTX 계열 밖의 열차(ITX · 무궁화 등)와 입석 · 자유석이 있는 열차의 응답.",
         "매진 열차, 운행하지 않는 날의 응답.",
         "천만 원 이상처럼 쉼표가 둘 이상인 금액은 실서버에서 본 것이 아니라 같은 규칙으로 읽히게 한 것."
+      ]
+    },
+    "membership_live_validation": {
+      "observed_at_kst": "2026-10-13",
+      "scope": "사용자가 이 건에 한해 승인한 본인 계정의 읽기 전용 조회. 로그인 → 마일리지 1회 → 쿠폰 1회 → 로그아웃. 계정 · 잔액 · 날짜 · 쿠폰번호는 기록하지 않고 값의 모양만 봄(숫자를 9 로, 영문자를 a 로 바꿔 출력).",
+      "earlier_attempt": "같은 날 앞선 시도는 계정이 비밀번호 변경 안내에 걸려 있어 두 요청 모두 P058 로 거절됨 (login_password_change_gate). 안내를 처리한 뒤 다시 조회함.",
+      "mileage": {
+        "sent": {
+          "fields": [
+            "Device",
+            "Version",
+            "AppVersion",
+            "Key",
+            "pontTpVal",
+            "qryDvVal",
+            "qryStDt",
+            "qryClsDt",
+            "pgPrCnt",
+            "nowPgNo"
+          ],
+          "pontTpVal": "1",
+          "qryDvVal": "0",
+          "period": "최근 90일 (YYYYMMDD)",
+          "pgPrCnt": "20",
+          "nowPgNo": "1",
+          "headers": "서명 없음"
+        },
+        "envelope": "strResult=SUCC, h_msg_cd=IRZ000001, h_msg_txt='정상적으로 조회 되었습니다.' 같은 값이 msgCd · msgTxt 에도 옴.",
+        "response_keys": [
+          "delPontValNum",
+          "ktxMlgInfo",
+          "msgCd",
+          "msgTxt",
+          "pgCnt",
+          "qryCnt",
+          "railNowSavePontValNum1",
+          "specList",
+          "totAcmRailPontValNum1",
+          "totAvlAfltPontValNum",
+          "totAvlRailPontValNum",
+          "totAvlRailPontValNum1",
+          "totUseRailPontValNum1"
+        ],
+        "value_shapes": {
+          "totAvlRailPontValNum · totAvlRailPontValNum1 · totAvlAfltPontValNum": "0 을 채운 아홉 자리 숫자. 쉼표 없음.",
+          "delPontValNum": "0 을 채운 열한 자리 숫자.",
+          "pgCnt": "0 을 채운 다섯 자리.",
+          "qryCnt": "0 을 채운 여덟 자리.",
+          "ktxMlgInfo": "안내 문장 (철도포인트의 사용 방식 · 유효기간)."
+        },
+        "rows": {
+          "count": 9,
+          "keys": [
+            "dptDt",
+            "mlgAcmDvCdNm",
+            "pontAmt",
+            "pontDvNm",
+            "rcpDvNm",
+            "savePontValNum",
+            "stlAmt"
+          ],
+          "dptDt": "여덟 자리 날짜.",
+          "pontDvNm": "'KTX 마일리지'",
+          "rcpDvNm": "'적립' · '사용'",
+          "mlgAcmDvCdNm": "'마일리지 적립 (열차이용)' · '코레일'",
+          "pontAmt": "부호와 쉼표가 붙은 표시용 문자열. 본 모양은 '+9,999' · '+999' · '-9,999' · '-999' 넷.",
+          "stlAmt · savePontValNum": "0 을 채운 열한 자리 숫자. 뜻은 확인하지 않음."
+        }
+      },
+      "coupons": {
+        "sent": {
+          "fields": [
+            "Device",
+            "Version",
+            "AppVersion",
+            "Key",
+            "txtSelPage"
+          ],
+          "txtSelPage": "1",
+          "headers": "서명 없음"
+        },
+        "envelope": "strResult=SUCC, h_msg_cd=WRG000000, h_msg_txt='조회 결과가 없습니다.'",
+        "response_keys": [
+          "coupon_infos",
+          "h_msg_cd",
+          "h_msg_txt",
+          "strResult"
+        ],
+        "note": "쿠폰이 없는 계정. coupon_infos 안에 coupon_info 키가 있고 내용은 비어 있음(빈 목록인지 null 인지는 보지 않음). 쪽 정보(h_tot_page_cnt 등)는 오지 않음."
+      },
+      "code_changes": [
+        "MileageEntry.reason(rcpDvNm)을 movement 로 바꿈 — 값이 사유가 아니라 '적립' · '사용' 구분이었음.",
+        "MileageEntry.detail(mlgAcmDvCdNm)을 더함.",
+        "MileageEntry.amount 를 문자열에서 부호 있는 정수로 바꿈 — 모양이 확인됨.",
+        "tests/payloads.py 의 마일리지 샘플을 실서버에서 본 모양과 키 구성으로 바꿈."
+      ],
+      "not_covered": [
+        "쿠폰이 실린 응답 — 쿠폰 행의 값, 쪽 넘김.",
+        "레일포인트 장부(pontTpVal=2)와 적립 · 사용만 고른 조회(qryDvVal=1 · 2).",
+        "두 쪽 이상인 내역 (pgCnt 가 1 보다 큰 경우), 내역이 없는 기간의 응답.",
+        "KTX 삼성카드 마일리지 · 레일포인트 · 소멸 예정이 0 이 아닌 계정."
       ]
     }
   }

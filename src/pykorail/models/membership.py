@@ -1,8 +1,9 @@
 """마일리지와 할인쿠폰 — 회원이 가진 것들의 조회 결과.
 
 필드 이름은 코레일+ 7.0.8 의 응답 모델(``AmtSpecOut`` · ``CouponOutInfo``)에서,
-각 값의 뜻은 앱이 그 값을 화면의 어느 자리에 놓는지에서 가져왔습니다. 앱이 화면에
-쓰지 않는 필드는 뜻을 확인할 길이 없어 싣지 않았습니다.
+각 값의 뜻은 앱이 그 값을 화면의 어느 자리에 놓는지에서 가져왔습니다. 마일리지는
+값의 모양까지 실서버로 확인했습니다 (2026-10-13). 뜻을 확인하지 못한 필드는 싣지
+않았습니다.
 """
 
 from __future__ import annotations
@@ -19,21 +20,26 @@ class MileageEntry:
 
     #: 날짜 ``YYYYMMDD`` (``dptDt``).
     date: str
-    #: 어느 마일리지인지 (``pontDvNm``). 앱은 이 값과 :attr:`reason` 을 이어 제목으로 씁니다.
+    #: 어느 마일리지인지 (``pontDvNm``, ``"KTX 마일리지"``). 앱은 이 값과 :attr:`movement` 를
+    #: 이어 제목으로 씁니다.
     kind_name: str
-    #: 적립 · 사용 사유 (``rcpDvNm``).
-    reason: str
-    #: 증감 (``pontAmt``). 서버가 준 **표시용 문자열 그대로**입니다 — 앱도 가공하지 않고
-    #: 보여 주고, 부호나 쉼표가 어떤 모양으로 오는지는 확인하지 못했습니다.
-    amount: str
+    #: 적립인지 사용인지 (``rcpDvNm``, ``"적립"`` · ``"사용"``).
+    movement: str
+    #: 서버가 붙인 설명 (``mlgAcmDvCdNm``). 적립은 ``"마일리지 적립 (열차이용)"``, 사용은
+    #: ``"코레일"`` 처럼 옵니다.
+    detail: str
+    #: 증감 (``pontAmt``). 적립은 양수, 사용은 음수입니다 — 서버가 부호와 쉼표를 붙여
+    #: ``"+2,990"`` · ``"-1,000"`` 으로 줍니다.
+    amount: int
 
     @classmethod
     def from_response(cls, data: dict[str, Any]) -> MileageEntry:
         return cls(
             date=text(data, "dptDt"),
             kind_name=text(data, "pontDvNm"),
-            reason=text(data, "rcpDvNm"),
-            amount=text(data, "pontAmt"),
+            movement=text(data, "rcpDvNm"),
+            detail=text(data, "mlgAcmDvCdNm"),
+            amount=amount(data, "pontAmt"),
         )
 
 

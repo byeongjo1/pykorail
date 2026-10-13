@@ -336,7 +336,9 @@ mileage = korail.membership.mileage()
 print(mileage.total, mileage.rail_point, mileage.expiring)  # 13000 500 120
 
 for entry in mileage.entries:
-    print(entry.date, entry.kind_name, entry.reason, entry.amount)
+    print(entry.date, entry.kind_name, entry.movement, entry.amount)
+# 20261003 KTX 마일리지 적립 2990
+# 20260921 KTX 마일리지 사용 -1000
 ```
 
 | 인자 | 설명 |
@@ -505,9 +507,10 @@ for page in range(2, used.page_count + 1):
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `date` | `str` | 날짜 `YYYYMMDD` |
-| `kind_name` | `str` | 어느 마일리지인지 |
-| `reason` | `str` | 적립 · 사용 사유 |
-| `amount` | `str` | 증감. 서버가 준 **표시용 문자열 그대로**입니다 — 숫자로 바꾸지 않습니다 |
+| `kind_name` | `str` | 어느 마일리지인지 (`"KTX 마일리지"`) |
+| `movement` | `str` | 적립인지 사용인지 (`"적립"` · `"사용"`) |
+| `detail` | `str` | 서버가 붙인 설명 (`"마일리지 적립 (열차이용)"` · `"코레일"`) |
+| `amount` | `int` | 증감. 적립은 양수, 사용은 음수 |
 
 ### `Coupon`
 
