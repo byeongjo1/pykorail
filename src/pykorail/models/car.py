@@ -65,6 +65,9 @@ class CarSeat:
     """
 
     car_no: str
+    #: 이 좌석을 조회한 객실 구분 코드. 좌석 응답에는 없고 조회 조건에서 옵니다 —
+    #: 좌석을 지정해 예매할 때 어느 객실인지 다시 묻지 않으려고 좌석에 붙여 둡니다.
+    seat_class: str
     seat_no: str
     label: str
     sale_flag: str
@@ -74,9 +77,10 @@ class CarSeat:
     message: str
 
     @classmethod
-    def from_response(cls, data: dict[str, Any], *, car_no: str) -> CarSeat:
+    def from_response(cls, data: dict[str, Any], *, car_no: str, seat_class: str) -> CarSeat:
         return cls(
             car_no=car_no,
+            seat_class=seat_class,
             seat_no=text(data, "seat_no"),
             label=text(data, "seat_spec"),
             sale_flag=text(data, "sale_psb_flg"),

@@ -349,6 +349,8 @@ SEATABLE_TRAIN_INFO = {
     **TRAIN_INFO,
     "h_dpt_stn_run_ordr": "000001",
     "h_arv_stn_run_ordr": "000019",
+    "h_dpt_stn_cons_ordr": "000001",
+    "h_arv_stn_cons_ordr": "000028",
     "h_seat_att_cd": "015",
 }
 

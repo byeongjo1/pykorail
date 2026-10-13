@@ -278,6 +278,7 @@ print([seat.label for seat in seats if seat.is_available])
 | `all()` | `list[Reservation]` | 결제 전 예약 전체. 좌석 상세까지 채워 옵니다. |
 | `find(rsv_id)` | `Reservation \| None` | 예약번호로 하나. 찾으면 요청 **2회**(목록 + 그 예약의 좌석), 목록에 없으면 1회, `rsv_id` 가 비어 있으면 0회. |
 | `create(train, passengers=None, option=GENERAL_FIRST)` | `Reservation` | 예매. 좌석이 없고 예약대기가 열려 있으면 대기를 겁니다. |
+| `create_with_seats(train, seats, passengers=None)` | `Reservation` | **고른 좌석으로** 예매. 아래 참고. |
 | `seats(rsv_id)` | `tuple[list[Seat], str \| None]` | 좌석 상세와 발매창구 번호. |
 | `pay(reservation, card)` | `None` | 카드 결제. |
 | `cancel(reservation)` | `None` | 예약 취소. |
@@ -290,6 +291,32 @@ print([seat.label for seat in seats if seat.is_available])
 
 `create()` 는 예매 직후 예약을 다시 조회해 돌려줍니다 — 반환된 `Reservation` 은
 `seats` 와 `wct_no` 가 채워져 있어 바로 `pay()` 에 넘길 수 있습니다.
+
+#### 좌석을 골라 예매하기
+
+`create()` 는 좌석을 서버가 정합니다. 자리를 직접 고르려면 [호차 · 좌석 조회](#호차--좌석-조회)로
+받은 좌석을 `create_with_seats()` 에 넘깁니다.
+
+```python
+train = korail.trains.search("서울", "부산")[0]
+car = next(car for car in korail.trains.cars(train) if car.has_seat())
+window = [seat for seat in korail.trains.seats(train, car) if seat.is_available][:2]
+
+reservation = korail.reservations.create_with_seats(train, window, [AdultPassenger(2)])
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `train` | `search` 가 돌려준 열차. 예약 목록 · 승차권의 열차는 구간 순서가 없어 쓸 수 없습니다. |
+| `seats` | `trains.seats()` 가 돌려준 좌석. **승객 한 명에 하나씩**, 전부 같은 객실이어야 합니다. 호차는 달라도 됩니다. |
+| `passengers` | 생략 시 어른 1명. |
+
+객실(일반실 · 특실)은 좌석에 붙어 있어(`CarSeat.seat_class`) 따로 넘기지 않습니다. 좌석 수가
+승객 수와 다르거나, 같은 좌석을 두 번 넘기거나, 객실이 섞이면 **요청 전에** `ValueError` 로
+막습니다 — 실제 좌석이 걸린 요청이라 서버에 물어보기 전에 거릅니다. 그사이 남이 사 간 좌석은
+서버가 거절하고 `KorailError` 가 됩니다.
+
+반환값은 `create()` 와 같습니다 — 바로 `pay()` 나 `cancel()` 에 넘길 수 있습니다.
 
 ### `korail.tickets`
 
@@ -382,6 +409,7 @@ for page in range(2, used.page_count + 1):
 | `special_seat` · `general_seat` | `str` | 좌석 코드 (`"11"` = 가능) |
 | `wait_reserve_flag` | `int` | `9` = 예약대기 가능, `-1` = 미적용 |
 | `dep_run_order` · `arr_run_order` | `str` | 출발 · 도착역의 운행 순서. 호차 · 좌석 조회가 구간을 이 값으로 가리킵니다 |
+| `dep_cons_order` · `arr_cons_order` | `str` | 출발 · 도착역의 구성 순서. 좌석을 지정한 예매가 운행 순서와 함께 돌려보냅니다 |
 | `seat_attribute` | `str` | 이 열차 행의 좌석 속성 코드. 호차 · 좌석 조회에 그대로 돌려보냅니다 |
 
 | 메서드 · 속성 | 반환 | 설명 |
@@ -478,6 +506,7 @@ for page in range(2, used.page_count + 1):
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `car_no` | `str` | 호차 번호 (`"0003"`) |
+| `seat_class` | `str` | 이 좌석을 조회한 객실 구분 코드 (`"1"` · `"2"`). 좌석 지정 예매가 이 값을 씁니다 |
 | `seat_no` | `str` | 좌석 **식별자** (`"57"`). 좌석을 가리킬 때는 이 값을 씁니다 |
 | `label` | `str` | 화면에 보이는 좌석 표시 (`"15A"`) |
 | `sale_flag` | `str` | 판매 가능 표시 (`"Y"` = 가능) |

@@ -460,7 +460,9 @@ class TrainResource(Resource):
         payload = self._api.post(url, data=form, headers=headers)
         self._api.check(payload)
 
-        return [CarSeat.from_response(info, car_no=car.car_no) for info in records(payload, "seatList")]
+        return [
+            CarSeat.from_response(info, car_no=car.car_no, seat_class=room) for info in records(payload, "seatList")
+        ]
 
     @staticmethod
     def _headcount(passengers: Sequence[Passenger] | None) -> int:
