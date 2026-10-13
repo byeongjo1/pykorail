@@ -1,3 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#2B5BD7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-48 -48 304 304">
+  <circle cx="104" cy="104" r="152" fill="#16181D"/>
+  <path fill="#FFFDF8" fill-rule="evenodd" d="M36 0H114A22 22 0 0 0 158 0H172A36 36 0 0 1 208 36V172A36 36 0 0 1 172 208H158A22 22 0 0 0 114 208H36A36 36 0 0 1 0 172V36A36 36 0 0 1 36 0ZM136 44A14 14 0 1 1 136 72A14 14 0 1 1 136 44ZM136 90A14 14 0 1 1 136 118A14 14 0 1 1 136 90ZM136 136A14 14 0 1 1 136 164A14 14 0 1 1 136 136Z"/>
 </svg>

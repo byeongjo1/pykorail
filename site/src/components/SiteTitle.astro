@@ -1,10 +1,19 @@
 ---
-// 헤더의 워드마크. 배너와 같은 구성(파란 사각 마크 + JetBrains Mono Bold)을 이미지 없이 그립니다.
+// 헤더의 워드마크. 승차권 마크 + JetBrains Mono Bold 를 이미지 파일 없이 그립니다.
+// 마크는 배너의 파란 사각형에 히어로 승차권의 절취선(홈 둘 + 구멍 셋)을 낸 것입니다.
+// public/favicon.svg 는 같은 윤곽을 검은 원 안에 흰색으로 넣은 것이라, 윤곽을 고치면 그쪽도
+// 함께 고치세요. 구멍만 다릅니다 — 탭에서는 승차권이 11px 남짓이라 거기서는 더 크게 뚫었습니다.
 const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
 ---
 
 <a href={siteTitleHref} class="site-title">
-  <span class="mark" aria-hidden="true"></span>
+  <svg class="mark" viewBox="0 0 208 208" aria-hidden="true">
+    <path
+      fill="currentColor"
+      fill-rule="evenodd"
+      d="M36 0H114A22 22 0 0 0 158 0H172A36 36 0 0 1 208 36V172A36 36 0 0 1 172 208H158A22 22 0 0 0 114 208H36A36 36 0 0 1 0 172V36A36 36 0 0 1 36 0ZM136 47A11 11 0 1 1 136 69A11 11 0 1 1 136 47ZM136 93A11 11 0 1 1 136 115A11 11 0 1 1 136 93ZM136 139A11 11 0 1 1 136 161A11 11 0 1 1 136 139Z"
+    ></path>
+  </svg>
   <span translate="no">{siteTitle}</span>
 </a>
 
@@ -21,15 +30,16 @@ const { siteTitle, siteTitleHref } = Astro.locals.starlightRoute;
     text-decoration: none;
     white-space: nowrap;
   }
+  /* 구멍이 1x 화면에서도 2px 로 남는 가장 작은 크기입니다. 더 줄이면 절취선이 뭉개집니다. */
   .mark {
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: 3px;
-    background: var(--pk-accent);
+    flex: none;
+    width: 1.375rem;
+    height: 1.375rem;
+    color: var(--pk-accent);
     transition: transform 0.2s ease;
   }
   .site-title:hover .mark {
-    transform: rotate(45deg);
+    transform: rotate(-12deg);
   }
   @media (prefers-reduced-motion: reduce) {
     .mark {
