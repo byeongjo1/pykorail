@@ -91,9 +91,14 @@ def error_for_code(code: str | None, msg: str | None = None) -> KorailError:
 
     매칭되는 코드가 없으면 서버 메시지를 담은 :class:`KorailError` 를 돌려줍니다.
     반환만 하고 raise 하지 않으므로 호출부에서 ``raise error_for_code(...)`` 하세요.
+
+    서버 메시지는 **코드가 매칭돼도** 싣습니다. 같은 타입으로 묶인 코드라도 서버가 하는
+    말은 다를 수 있고("로그아웃되었습니다" 와 "회원로그인 후 사용하시기 바랍니다" 는 둘 다
+    ``P058`` 입니다), 타입의 ``default_msg`` 는 그 차이를 지웁니다. 서버가 메시지를 주지
+    않았거나 빈 문자열이면 ``default_msg`` 가 남습니다.
     """
     if code is not None:
         for error_type in _coded_subclasses(KorailError):
             if code in error_type.codes:
-                return error_type(code=code)
+                return error_type(msg or None, code)
     return KorailError(msg, code)

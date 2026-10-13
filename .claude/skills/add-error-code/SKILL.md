@@ -50,7 +50,8 @@ class TooManyReservationsError(KorailError):
 - 코드를 여러 개 묶어도 됩니다 (`NoResultsError` 가 4개를 묶습니다). **호출자가
   같은 방식으로 대응할 코드끼리** 묶으세요. 대응이 다르면 타입을 나누세요.
 - `default_msg` 는 짧은 영문 식별 문구. 사용자에게 보일 한국어 메시지는 서버가
-  `h_msg_txt` 로 주고, 매칭 안 된 코드는 그 메시지가 그대로 실립니다.
+  `h_msg_txt` 로 주고, **코드가 매칭되든 아니든** 그 메시지가 그대로 실립니다.
+  `default_msg` 는 서버가 메시지를 주지 않았을 때만 쓰입니다.
 - `exceptions/__init__.py` 의 import 와 `__all__` 에 추가하고, 공개할 만하면
   `pykorail/__init__.py` 에도 추가하세요.
 

@@ -91,6 +91,40 @@ class TestCodeMapping:
         assert type(error) is expected
         assert error.code == code
 
+    @pytest.mark.parametrize(
+        ("code", "said"),
+        [
+            ("P058", "로그아웃되었습니다. 다시 로그인하여 주십시오."),
+            ("P058", "회원로그인 후 사용하시기 바랍니다."),
+            ("WRG000000", "조회 결과가 없습니다."),
+            ("IRT010110", "잔여석 없음"),
+            ("WRC000420", "6개월 이상 동일한 비밀번호를 사용하고 있습니다."),
+        ],
+        ids=["logged-out", "login-first", "no-results", "sold-out", "password-change"],
+    )
+    def test_known_code_keeps_what_the_server_said(self, code: str, said: str) -> None:
+        """타입으로 승격돼도 서버의 말은 남아야 합니다. 같은 코드에 다른 문구가 옵니다."""
+        # when
+        error = error_for_code(code, said)
+
+        # then
+        assert error.msg == said
+
+    @pytest.mark.parametrize("said", [None, ""], ids=["absent", "blank"])
+    def test_known_code_without_a_message_falls_back_to_the_default(self, said: str | None) -> None:
+        # when
+        error = error_for_code("P100", said)
+
+        # then
+        assert error.msg == "No Results"
+
+    def test_known_code_renders_the_server_message_with_its_code(self) -> None:
+        # when
+        rendered = str(error_for_code("P058", "로그아웃되었습니다."))
+
+        # then
+        assert rendered == "로그아웃되었습니다. (P058)"
+
     def test_unknown_code_keeps_server_message(self) -> None:
         # when
         error = error_for_code("ZZZ999", "알 수 없는 오류")
