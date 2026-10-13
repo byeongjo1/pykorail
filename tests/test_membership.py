@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import dataclasses
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 
 from pykorail.exceptions import KorailError, NeedToLoginError
 from pykorail.models import Coupon, Mileage, MileageEntry
 from pykorail.options import MileageInquiry, MileageType
-from pykorail.resources.trains import KST
+from pykorail.resources.trains import KST, to_kst
 from tests.payloads import (
     COUPON_INFO,
     COUPONS_PAYLOAD,
@@ -163,6 +163,58 @@ class TestMileage:
         # then
         data = session.kwargs_for("mileage")["data"]
         assert (data["qryStDt"], data["qryClsDt"]) == ("20260301", "20260331")
+
+    def test_datetime_since_does_not_break_the_period_check(self, make_korail, monkeypatch) -> None:
+        """``datetime`` 은 ``date`` 의 하위 타입이라 타입 검사를 통과하지만 ``date`` 와 비교되지 않습니다.
+
+        ``until`` 을 생략하면 한쪽만 ``datetime`` 이 되어 ``TypeError`` 가 났습니다.
+        """
+        # given
+        client, session = make_korail(MEMBERSHIP_ROUTES)
+        today = datetime(2026, 10, 12, 9, 0, tzinfo=KST)
+        # 오늘만 고정하고, 넘겨받은 시각은 진짜 변환을 그대로 탑니다.
+        monkeypatch.setattr("pykorail.resources.membership.to_kst", lambda moment: to_kst(moment) if moment else today)
+
+        # when
+        client.membership.mileage(since=datetime(2026, 9, 1, 15, 30))
+
+        # then
+        data = session.kwargs_for("mileage")["data"]
+        assert (data["qryStDt"], data["qryClsDt"]) == ("20260901", "20261012")
+
+    @pytest.mark.parametrize(
+        ("since", "until", "expected"),
+        [
+            (datetime(2026, 7, 1, 8, 0), datetime(2026, 9, 30, 23, 59), ("20260701", "20260930")),
+            (date(2026, 7, 1), datetime(2026, 9, 30, 12, 0), ("20260701", "20260930")),
+            (datetime(2026, 7, 1, 12, 0), date(2026, 9, 30), ("20260701", "20260930")),
+        ],
+        ids=["both-datetime", "date-then-datetime", "datetime-then-date"],
+    )
+    def test_accepts_datetimes_for_the_period(
+        self, make_korail, since: date, until: date, expected: tuple[str, str]
+    ) -> None:
+        # given
+        client, session = make_korail(MEMBERSHIP_ROUTES)
+
+        # when
+        client.membership.mileage(since=since, until=until)
+
+        # then
+        data = session.kwargs_for("mileage")["data"]
+        assert (data["qryStDt"], data["qryClsDt"]) == expected
+
+    def test_aware_datetime_is_read_as_its_kst_date(self, make_korail) -> None:
+        """UTC 15:00 은 KST 로 다음 날 0시입니다. 조회(``trains.search``)와 같은 해석입니다."""
+        # given
+        client, session = make_korail(MEMBERSHIP_ROUTES)
+        late_utc = datetime(2026, 9, 30, 15, 0, tzinfo=UTC)
+
+        # when
+        client.membership.mileage(since=date(2026, 9, 1), until=late_utc)
+
+        # then
+        assert session.kwargs_for("mileage")["data"]["qryClsDt"] == "20261001"
 
     def test_sends_the_page_number(self, make_korail) -> None:
         # given

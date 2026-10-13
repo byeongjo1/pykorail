@@ -329,7 +329,7 @@ if fee.refundable and fee.fee < 10000:
 | 메서드 | 반환 | 설명 |
 | --- | --- | --- |
 | `mileage(since=None, until=None, *, kind=KTX, inquiry=ALL, page=1)` | `Mileage` | 마일리지 잔액과 적립 · 사용 내역 한 쪽. |
-| `coupons(page=1)` | `list[Coupon]` | 가진 할인쿠폰. 없으면 빈 리스트. |
+| `coupons(page=1)` | `list[Coupon]` | 가진 할인쿠폰. 없으면 빈 리스트. 쪽 수는 응답에서 확인되지 않아 싣지 않았습니다 — 다음 쪽이 비면 끝입니다. |
 
 ```python
 mileage = korail.membership.mileage()
@@ -343,7 +343,7 @@ for entry in mileage.entries:
 
 | 인자 | 설명 |
 | --- | --- |
-| `since` · `until` | 내역을 볼 기간 (`datetime.date`). `until` 을 생략하면 오늘(KST), `since` 를 생략하면 `until` 의 30일 전. `since` 가 더 늦으면 `ValueError`. |
+| `since` · `until` | 내역을 볼 기간 (`datetime.date`). `until` 을 생략하면 오늘(KST), `since` 를 생략하면 `until` 의 30일 전. `since` 가 더 늦으면 `ValueError`. `datetime` 을 넘겨도 되고, 그때는 `trains.search` 처럼 KST 로 읽어 날짜만 씁니다. |
 | `kind` | 어느 장부의 내역인지 — [`MileageType`](#mileagetype) 코드. 기본 KTX 마일리지. |
 | `inquiry` | 적립 · 사용 구분 — [`MileageInquiry`](#mileageinquiry) 코드. 기본 전체. |
 | `page` | 쪽 번호. 1 부터이고, 1 보다 작으면 `ValueError`. 한 쪽에 20건씩 요청합니다. |

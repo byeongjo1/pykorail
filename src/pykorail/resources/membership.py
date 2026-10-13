@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from pykorail.constants import API_ENDPOINTS
@@ -45,7 +45,8 @@ class MembershipResource(Resource):
 
         Args:
             since: 내역을 볼 첫날. 생략하면 ``until`` 의 30일 전.
-            until: 내역을 볼 마지막 날. 생략하면 오늘(KST).
+            until: 내역을 볼 마지막 날. 생략하면 오늘(KST). 둘 다 ``datetime`` 을 넘겨도
+                되고, 그때는 KST 기준 날짜만 씁니다.
             kind: 어느 장부의 내역인지 — :class:`~pykorail.options.MileageType`. 기본은 KTX 마일리지.
             inquiry: 적립 · 사용 구분 — :class:`~pykorail.options.MileageInquiry`. 기본은 전체.
             page: 내역의 쪽 번호. 1 부터. 전체 쪽 수는 결과의 ``page_count`` 입니다.
@@ -55,8 +56,8 @@ class MembershipResource(Resource):
             NeedToLoginError: 로그인하지 않았습니다.
         """
         page_no = self._page_number(page)
-        last = until or to_kst(None).date()
-        first = since or last - DEFAULT_PERIOD
+        last = self._day(until) or to_kst(None).date()
+        first = self._day(since) or last - DEFAULT_PERIOD
         if first > last:
             raise ValueError(f"since 가 until 보다 늦습니다: {first:%Y-%m-%d} > {last:%Y-%m-%d}")
 
@@ -85,7 +86,8 @@ class MembershipResource(Resource):
         쪽 번호만 싣고, 예약번호(``pnrNo``)는 결제 화면에서만 채웁니다.
 
         Args:
-            page: 쪽 번호. 1 부터.
+            page: 쪽 번호. 1 부터. 전체 쪽 수는 돌려주지 않습니다 — 쿠폰이 실린 응답을
+                확인하지 못해 쪽 정보를 싣지 않았습니다. 다음 쪽이 비면 끝입니다.
 
         Raises:
             ValueError: ``page`` 가 1 보다 작습니다.
@@ -104,6 +106,17 @@ class MembershipResource(Resource):
             return []
 
         return [Coupon.from_response(info) for info in records(payload, "coupon_infos", "coupon_info")]
+
+    @staticmethod
+    def _day(value: date | None) -> date | None:
+        """``datetime`` 이 오면 KST 날짜로 줄입니다.
+
+        ``datetime`` 은 ``date`` 의 하위 타입이라 타입 검사를 통과하지만 ``date`` 와는
+        비교가 되지 않습니다 — 한쪽만 ``datetime`` 이면 기간 검사에서 ``TypeError`` 가 납니다.
+        ``trains.search`` 에 ``datetime`` 을 넘기던 사람이 여기에도 그대로 넘길 수 있으므로
+        입구에서 받습니다. 시각대 해석은 조회와 같습니다(tz 없으면 KST, 있으면 KST 로 변환).
+        """
+        return to_kst(value).date() if isinstance(value, datetime) else value
 
     @staticmethod
     def _page_number(page: int) -> str:
