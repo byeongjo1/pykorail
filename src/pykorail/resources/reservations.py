@@ -118,10 +118,15 @@ class ReservationResource(Resource):
         보냅니다 — 그렇게 보내야 두 구간이 함께 취소됩니다(2026-10-13 실서버 확인). 여정이
         하나인 예약은 건드리지 않습니다. 그쪽은 예전부터 쓰던 고정값으로 취소되고 있습니다.
         """
-        siblings = [other for other in entries if text(other, "h_pnr_no") == text(entry, "h_pnr_no")]
+        rsv_id = text(entry, "h_pnr_no")
+        if not rsv_id:
+            # 예약번호가 빈 항목끼리 서로 형제로 묶이지 않게 합니다.
+            return {}
+        siblings = [other for other in entries if text(other, "h_pnr_no") == rsv_id]
         if len(siblings) < _TRANSFER_LEGS:
             return {}
-        first = siblings[0]
+        # 목록의 순서에 기대지 않고 순번이 가장 앞선 여정을 첫 여정으로 봅니다.
+        first = min(siblings, key=lambda other: text(other, "h_jrny_sqno"))
         return {
             "journey_no": text(first, "h_jrny_sqno") or "0001",
             "journey_cnt": f"{len(siblings):04d}",
@@ -318,7 +323,7 @@ class ReservationResource(Resource):
         passengers: Sequence[Passenger] | None = None,
         *,
         seat_class: SeatClassCode = SeatClass.GENERAL,
-    ) -> list[Reservation]:
+    ) -> tuple[Reservation, Reservation]:
         """환승 여정의 두 구간을 한 번에 예매합니다.
 
         구간을 따로 예매하면 첫 구간만 잡히고 둘째가 매진될 수 있습니다. 이 요청은 두
@@ -335,7 +340,7 @@ class ReservationResource(Resource):
             seat_class: 두 구간에 함께 적용할 객실. 기본은 일반실.
 
         Returns:
-            타는 순서대로 **구간마다 하나씩**의 예약. 둘은 예약번호(``rsv_id``)가 같고,
+            타는 순서대로 **구간마다 하나씩**, 예약 둘. 둘은 예약번호(``rsv_id``)가 같고,
             각자 그 구간의 열차와 좌석을 가집니다. :meth:`cancel` 에는 둘 중 어느 것을
             넘겨도 **예약 전체**가 취소됩니다. ``price`` 는 구간의 금액이 아니라 예약
             전체의 금액이라 둘을 더하면 안 됩니다.
@@ -344,8 +349,9 @@ class ReservationResource(Resource):
             TypeError: 환승 여정이 아닌 것을 넘겼습니다.
             ValueError: 구간이 둘이 아니거나, 승객이 없거나, 열차에 예매에 필요한 값이
                 없습니다. 요청 전에 막습니다.
-            KorailError: 서버가 예매를 거부했거나(한 구간이라도 매진 등), 예매 후 예약을
-                다시 조회하지 못했습니다.
+            KorailError: 서버가 예매를 거부했거나(한 구간이라도 매진 등), 예매 후 예약의
+                두 구간을 다시 조회하지 못했습니다. 뒤의 경우 예약은 만들어져 있고
+                메시지에 예약번호가 실립니다.
         """
         if not isinstance(transfer, Transfer):
             # 열차 한 편을 넘기면 legs 가 없다는 속성 오류로는 원인을 알기 어렵습니다.
@@ -391,17 +397,25 @@ class ReservationResource(Resource):
         entries = [entry for entry in self._entries() if rsv_id and text(entry, "h_pnr_no") == rsv_id]
         if not entries:
             raise self._lost(rsv_id)
+        if len(entries) != _TRANSFER_LEGS:
+            # 구간이 둘이 아니면 어느 항목이 어느 구간인지 말할 수 없습니다. 예약은 이미
+            # 만들어져 있으니 예약번호를 실어 알립니다 — 조용히 하나만 돌려주지 않습니다.
+            raise KorailError(
+                f"예매는 성공했지만 예약({rsv_id})에서 구간 {_TRANSFER_LEGS}개를 찾지 못했습니다: {len(entries)}개"
+            )
         # 구간마다 좌석 상세를 따로 조회하지 않고 한 번 받아 여정 번호로 나눕니다.
         journeys, wct_no = self._journeys(rsv_id)
-        return [
+        # 타는 순서는 목록의 순서가 아니라 여정 순번입니다.
+        first, second = (
             Reservation.from_response(
                 entry,
                 seats=self._seats_of(journeys, entry),
                 wct_no=wct_no,
                 **self._cancel_key(entry, entries),
             )
-            for entry in entries
-        ]
+            for entry in sorted(entries, key=lambda entry: text(entry, "h_jrny_sqno"))
+        )
+        return first, second
 
     @staticmethod
     def _journey_of(train: Train, what: str) -> dict[str, str]:

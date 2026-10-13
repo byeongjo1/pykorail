@@ -33,6 +33,12 @@ ROUTES = {
     "myreservationlist": TRANSFER_SEAT_DETAIL_PAYLOAD,
 }
 
+#: 서버가 구간을 거꾸로 실어 준 목록. 본 적은 없지만, 순서에 기대면 그날 조용히 틀립니다.
+REVERSED_LIST_PAYLOAD = {
+    "strResult": "SUCC",
+    "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": TRANSFER_RESERVATION_ENTRIES[::-1]}}]},
+}
+
 #: 여정 하나가 차지하는 필드. 뒤에 여정 번호(1 · 2)가 붙습니다.
 JOURNEY_FIELDS = [
     "txtJrnyTpCd",
@@ -114,6 +120,29 @@ class TestCreateTransfer:
             (Seat.from_response(FIRST_LEG_SEAT_INFO),),
             (Seat.from_response(SECOND_LEG_SEAT_INFO),),
         )
+
+    def test_returns_exactly_two(self, found) -> None:
+        """구간이 둘인 여정만 받으니 결과도 늘 둘입니다. 길이를 말하는 타입으로 돌려줍니다."""
+        # given
+        client, _, transfer = found
+
+        # when
+        reservations = client.reservations.create_transfer(transfer)
+
+        # then
+        assert (type(reservations), len(reservations)) == (tuple, 2)
+
+    def test_legs_come_in_riding_order_even_if_the_list_is_reversed(self, make_korail) -> None:
+        """타는 순서는 목록의 순서가 아니라 여정 순번입니다."""
+        # given
+        client, _ = make_korail({**ROUTES, "myreservationview": REVERSED_LIST_PAYLOAD})
+        transfer = client.trains.search_transfers("서울", "부산")[0]
+
+        # when
+        first, second = client.reservations.create_transfer(transfer)
+
+        # then
+        assert (first.train.train_no, second.train.train_no) == ("101", "1201")
 
     def test_looks_the_seat_detail_up_once_for_both_legs(self, found) -> None:
         # given
@@ -295,6 +324,32 @@ class TestCancellingATransferReservation:
         sent = {key: data[key] for key in ("txtPnrNo", "txtJrnySqno", "txtJrnyCnt", "hidRsvChgNo")}
         assert sent == {"txtPnrNo": "1234567890", "txtJrnySqno": "0001", "txtJrnyCnt": "0002", "hidRsvChgNo": "000"}
 
+    def test_first_journey_is_the_lowest_sequence_not_the_first_row(self, make_korail) -> None:
+        """서버가 목록의 순서를 바꿔 줘도 첫 여정의 순번(0001)을 보내야 합니다."""
+        # given
+        client, session = make_korail({**ROUTES, "myreservationview": REVERSED_LIST_PAYLOAD, "cancel": RESERVE_OK})
+        reservation = client.reservations.all()[0]
+
+        # when
+        client.reservations.cancel(reservation)
+
+        # then
+        data = session.kwargs_for("cancel")["data"]
+        assert (data["txtJrnySqno"], data["txtJrnyCnt"]) == ("0001", "0002")
+
+    def test_rows_without_a_reservation_number_are_not_grouped_together(self, make_korail) -> None:
+        """예약번호가 빈 항목 둘이 서로 형제로 묶여 환승 예약처럼 취급되면 안 됩니다."""
+        # given
+        blank = [{**entry, "h_pnr_no": ""} for entry in TRANSFER_RESERVATION_ENTRIES]
+        listing = {"strResult": "SUCC", "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": blank}}]}}
+        client, _ = make_korail({**ROUTES, "myreservationview": listing})
+
+        # when
+        reservations = client.reservations.all()
+
+        # then
+        assert [(r.journey_no, r.journey_cnt, r.rsv_chg_no) for r in reservations] == [("001", "01", "00000")] * 2
+
     def test_reservations_from_the_list_cancel_the_same_way(self, make_korail) -> None:
         """예매 직후가 아니라 나중에 목록에서 받은 예약으로도 취소돼야 합니다."""
         # given
@@ -445,6 +500,20 @@ class TestCreateTransferWhenTheServerRefuses:
 
         # when & then
         with pytest.raises(KorailError, match="다시 조회하지 못했습니다"):
+            client.reservations.create_transfer(transfer)
+
+    def test_raises_with_the_reservation_number_when_a_leg_is_missing(self, make_korail) -> None:
+        """구간이 하나만 보이면 조용히 하나만 돌려주지 않습니다. 예약은 이미 있으니 번호를 알려 줍니다."""
+        # given
+        listing = {
+            "strResult": "SUCC",
+            "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": TRANSFER_RESERVATION_ENTRIES[:1]}}]},
+        }
+        client, _ = make_korail({**ROUTES, "myreservationview": listing})
+        transfer = client.trains.search_transfers("서울", "부산")[0]
+
+        # when & then
+        with pytest.raises(KorailError, match=r"예약\(1234567890\)에서 구간 2개를 찾지 못했습니다: 1개"):
             client.reservations.create_transfer(transfer)
 
 
