@@ -279,9 +279,10 @@ print([seat.label for seat in seats if seat.is_available])
 | `find(rsv_id)` | `Reservation \| None` | 예약번호로 하나. 찾으면 요청 **2회**(목록 + 그 예약의 좌석), 목록에 없으면 1회, `rsv_id` 가 비어 있으면 0회. |
 | `create(train, passengers=None, option=GENERAL_FIRST)` | `Reservation` | 예매. 좌석이 없고 예약대기가 열려 있으면 대기를 겁니다. |
 | `create_with_seats(train, seats, passengers=None)` | `Reservation` | **고른 좌석으로** 예매. 아래 참고. |
-| `seats(rsv_id)` | `tuple[list[Seat], str \| None]` | 좌석 상세와 발매창구 번호. |
+| `create_transfer(transfer, passengers=None, *, seat_class=GENERAL)` | `tuple[Reservation, Reservation]` | **환승 여정의 두 구간을 한 번에** 예매. 아래 참고. |
+| `seats(rsv_id)` | `tuple[list[Seat], str \| None]` | 좌석 상세와 발매창구 번호. 환승 예약이면 첫 구간의 좌석입니다. |
 | `pay(reservation, card)` | `None` | 카드 결제. |
-| `cancel(reservation)` | `None` | 예약 취소. |
+| `cancel(reservation)` | `None` | 예약 취소. 예약번호 단위라, 환승 예약은 어느 구간을 넘겨도 두 구간이 함께 취소됩니다. |
 
 > [!IMPORTANT]
 > `all()` 은 예약 하나마다 좌석 상세를 추가 조회합니다. 예약이 N개면 요청이 N+1회
@@ -317,6 +318,45 @@ reservation = korail.reservations.create_with_seats(train, window, [AdultPasseng
 서버가 거절하고 `KorailError` 가 됩니다.
 
 반환값은 `create()` 와 같습니다 — 바로 `pay()` 나 `cancel()` 에 넘길 수 있습니다.
+
+#### 환승 여정 예매하기
+
+[환승 조회](#환승-조회)로 찾은 여정의 두 구간을 예약번호 하나로 묶어 잡습니다. 구간을 따로
+`create()` 하면 첫 구간만 잡히고 둘째가 매진될 수 있습니다 — 이쪽은 한 구간이라도 안 되면
+서버가 통째로 거절합니다. 좌석은 서버가 정합니다.
+
+```python
+transfer = korail.trains.search_transfers("강릉", "목포")[0]
+first, second = korail.reservations.create_transfer(transfer)
+
+print(first.rsv_id == second.rsv_id)  # True — 예약번호는 하나입니다
+print(first.train.arr_name, first.seats, second.seats)
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `transfer` | `search_transfers` 가 돌려준 여정. 두 구간이어야 합니다. |
+| `passengers` | 생략 시 어른 1명. |
+| `seat_class` | 두 구간에 함께 적용할 객실 — [`SeatClass`](#seatclass) 코드. 기본 일반실. |
+
+반환값은 **구간마다 하나씩, 예약 둘**이고 타는 순서입니다. 둘은 예약번호가 같고 각자 그
+구간의 열차와 좌석을 가집니다. 열차 한 편을 넘기면 `TypeError`, 구간이 둘이 아니거나 열차에
+구간 순서가 없으면 요청 전에 `ValueError` 입니다.
+
+환승 예약은 예약번호 하나에 구간이 둘이라, 보통 예약과 다른 점이 셋 있습니다.
+
+- **취소는 예약 전체입니다.** `cancel()` 에 둘 중 어느 것을 넘겨도 두 구간이 함께 취소됩니다.
+- **`price` 는 예약 전체의 금액입니다.** 서버가 두 항목에 같은 값을 싣습니다 — 둘을 더하면
+  두 배가 됩니다. 구간별 금액은 `seats` 의 좌석 금액에 있습니다.
+- **`all()` 에는 구간마다 한 줄씩** 나오고, `find()` 는 첫 구간의 예약을 돌려줍니다.
+
+```python
+first, second = korail.reservations.create_transfer(transfer)
+
+print(first.price)  # 75100 — 두 구간의 합
+print([seat.price for seat in first.seats])  # [27600] — 첫 구간만
+korail.reservations.cancel(first)  # 두 구간이 함께 취소됩니다
+```
 
 ### `korail.tickets`
 

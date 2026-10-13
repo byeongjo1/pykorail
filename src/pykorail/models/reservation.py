@@ -22,6 +22,10 @@ class Reservation:
     예약은 열차가 *아니라* 열차를 **참조**합니다 — ``reservation.train.dep_name``
     처럼 쓰세요. 좌석 상세(:attr:`seats`, :attr:`wct_no`)는 생성 시점에 이미 채워져
     있습니다. 반쯤 채워진 예약은 존재하지 않습니다.
+
+    환승 예약은 예약번호 하나에 구간이 둘이라 이 객체가 구간마다 하나씩 생깁니다.
+    그때 :attr:`price` 는 그 구간의 금액이 아니라 **예약 전체의 금액**입니다(서버가 두
+    항목에 같은 값을 싣습니다). 구간별 금액은 :attr:`seats` 의 좌석 금액에 있습니다.
     """
 
     train: Train
@@ -31,7 +35,9 @@ class Reservation:
     buy_limit_time: str
     price: int
 
-    # 취소 요청에 그대로 되돌려 줘야 하는 여정 식별자.
+    # 취소 요청에 실어 보내는 여정 식별자. 여정이 하나인 보통 예약은 예전부터 쓰던 고정값이고,
+    # 환승 예약처럼 여정이 여럿이면 서버가 준 값(첫 여정의 순번 · 여정 수 · 변경번호)입니다 —
+    # 고정값으로는 서버가 취소를 거절합니다.
     journey_no: str
     journey_cnt: str
     rsv_chg_no: str
@@ -48,6 +54,9 @@ class Reservation:
         *,
         seats: tuple[Seat, ...] = (),
         wct_no: str | None = None,
+        journey_no: str | None = None,
+        journey_cnt: str | None = None,
+        rsv_chg_no: str | None = None,
     ) -> Reservation:
         # 예약 응답에는 출발·도착일이 따로 오지 않고 운행일 하나만 옵니다.
         train = Train.from_response(data)
@@ -60,9 +69,9 @@ class Reservation:
             buy_limit_date=text(data, "h_ntisu_lmt_dt"),
             buy_limit_time=text(data, "h_ntisu_lmt_tm"),
             price=integer(data, "h_rsv_amt"),
-            journey_no=text(data, "txtJrnySqno", "001"),
-            journey_cnt=text(data, "txtJrnyCnt", "01"),
-            rsv_chg_no=text(data, "hidRsvChgNo", "00000"),
+            journey_no=journey_no or text(data, "txtJrnySqno", "001"),
+            journey_cnt=journey_cnt or text(data, "txtJrnyCnt", "01"),
+            rsv_chg_no=rsv_chg_no or text(data, "hidRsvChgNo", "00000"),
             seats=seats,
             wct_no=wct_no,
         )

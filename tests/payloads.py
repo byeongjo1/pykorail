@@ -568,6 +568,96 @@ TRANSFER_SEARCH_PAYLOAD = {
     "trn_infos": {"trn_info": [FIRST_LEG_INFO, SECOND_LEG_INFO, LATER_FIRST_LEG_INFO, SOLD_OUT_SECOND_LEG_INFO]},
 }
 
+# ---------------------------------------------------------------- 환승 예약
+# 예매에 필요한 구간 순서(구성 · 운행)와 좌석 속성까지 내려온 환승 구간들, 그리고 그 예매가
+# 만든 예약 하나(예약번호 하나에 여정 둘). 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언
+# 그대로이고(TrainScheduleOutTrainInfo · ReservationViewOutTrainInfo · ReservationOutJrnyInfo ·
+# ReservationOutSeatInfo), 예약 응답의 모양은 실서버에서 본 것입니다. 값은 예시입니다.
+
+RESERVABLE_FIRST_LEG_INFO = {
+    **FIRST_LEG_INFO,
+    "h_dpt_stn_cons_ordr": "000001",
+    "h_arv_stn_cons_ordr": "000012",
+    "h_dpt_stn_run_ordr": "000001",
+    "h_arv_stn_run_ordr": "000005",
+    "h_seat_att_cd": "015",
+}
+
+#: 둘째 구간은 좌석 속성이 첫 구간과 다릅니다 — 구간마다 따로 실어야 하는 값입니다.
+RESERVABLE_SECOND_LEG_INFO = {
+    **SECOND_LEG_INFO,
+    "h_dpt_stn_cons_ordr": "000012",
+    "h_arv_stn_cons_ordr": "000040",
+    "h_dpt_stn_run_ordr": "000007",
+    "h_arv_stn_run_ordr": "000021",
+    "h_seat_att_cd": "019",
+}
+
+RESERVABLE_TRANSFER_SEARCH_PAYLOAD = {
+    "strResult": "SUCC",
+    "trn_infos": {"trn_info": [RESERVABLE_FIRST_LEG_INFO, RESERVABLE_SECOND_LEG_INFO]},
+}
+
+#: 환승 예약의 목록 응답 — 예약번호가 같은 항목이 구간마다 하나씩, 여정 하나(jrny_info) 안에
+#: 함께 옵니다. 키와 값의 **모양**은 2026-10-13 실서버 응답 그대로입니다 — 여정 번호는 네 자리,
+#: 변경번호는 세 자리, 금액은 0 을 채운 열한 자리. **금액은 구간의 것이 아니라 예약 전체의
+#: 금액이 두 항목에 똑같이** 실립니다. 값 자체는 예시입니다.
+TRANSFER_RESERVATION_ENTRIES = [
+    {
+        **FIRST_LEG_INFO,
+        "h_pnr_no": "1234567890",
+        "h_pnr_cnt": "00000000002",
+        "h_jrny_sqno": "0001",
+        "h_jrny_tp_cd": "14",
+        "h_tot_seat_cnt": "00001",
+        "h_rsv_amt": "00000041500",
+        "h_rsv_chg_no": "000",
+    },
+    {
+        **SECOND_LEG_INFO,
+        "h_pnr_no": "1234567890",
+        "h_pnr_cnt": "00000000000",
+        "h_jrny_sqno": "0002",
+        "h_jrny_tp_cd": "14",
+        "h_tot_seat_cnt": "00001",
+        "h_rsv_amt": "00000041500",
+        "h_rsv_chg_no": "000",
+    },
+]
+
+TRANSFER_RESERVATION_LIST_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_jrny_cnt": "2",
+    "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": TRANSFER_RESERVATION_ENTRIES}}]},
+}
+
+FIRST_LEG_SEAT_INFO = {**SEAT_INFO, "h_srcar_no": "3", "h_seat_no": "5A", "h_rcvd_amt": "23700", "h_seat_prc": "23700"}
+#: 실서버는 호차 번호를 숫자로 주기도 합니다.
+SECOND_LEG_SEAT_INFO = {**SEAT_INFO, "h_srcar_no": 2, "h_seat_no": "41", "h_rcvd_amt": "17800", "h_seat_prc": "17800"}
+
+#: 환승 예약의 상세 응답 — 여정이 둘이고, 각자 목록과 같은 여정 번호와 그 구간의 좌석을 가집니다.
+TRANSFER_SEAT_DETAIL_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_wct_no": "0143",
+    "h_jrny_cnt": "2",
+    "jrny_infos": {
+        "jrny_info": [
+            {
+                "h_jrny_sqno": "0001",
+                "h_jrny_tp_cd": "14",
+                "h_rsv_chg_no": "000",
+                "seat_infos": {"seat_info": [FIRST_LEG_SEAT_INFO]},
+            },
+            {
+                "h_jrny_sqno": "0002",
+                "h_jrny_tp_cd": "14",
+                "h_rsv_chg_no": "000",
+                "seat_infos": {"seat_info": [SECOND_LEG_SEAT_INFO]},
+            },
+        ]
+    },
+}
+
 # ---------------------------------------------------------------- 운임 조회
 # 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고 (PrcFareOut · PrcFareOutItem),
 # 값의 **모양**(금액의 쉼표와 ``원``, 해당 없는 칸의 ``-``, 네 자리 구간 번호, 0 을 채우지
