@@ -14,6 +14,7 @@ PykorailError
 │   ├── NoResultsError
 │   ├── SoldOutError
 │   └── LoginFailedError
+│       └── PasswordChangeRequiredError  ← strResult=SUCC 인데 세션이 인증되지 않는 경우
 ├── NetFunnelError         ← 대기열 게이트 실패
 ├── StationNotFoundError   ← 요청을 보내기 **전** 클라이언트가 잡은 입력 오류
 └── TransportError         ← 세션 생성 실패 / 비 JSON 응답

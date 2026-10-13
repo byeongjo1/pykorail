@@ -221,6 +221,21 @@ LOGIN_OK_WITHOUT_PROFILE = {"strResult": "SUCC", "strMbCrdNo": "1234567890"}
 
 LOGIN_FAIL = {"strResult": "FAIL", "h_msg_cd": "WRC000000", "h_msg_txt": "비밀번호가 틀렸습니다"}
 
+#: 같은 비밀번호를 6개월 넘게 쓴 계정의 로그인 응답. 키 구성과 코드 · 안내문은 2026-10-13
+#: 실서버 응답 그대로이고 값은 예시입니다. **성공 봉투에 회원번호까지 오지만** 이름 · 이메일
+#: 같은 프로필은 없고, 이 세션으로 보낸 인증 호출은 전부 P058 로 거절됐습니다.
+LOGIN_PASSWORD_CHANGE_REQUIRED = {
+    "strResult": "SUCC",
+    "h_msg_cd": "WRC000420",
+    "h_msg_txt": (
+        "6개월 이상 동일한 비밀번호를 사용하고 있습니다.\n"
+        "개인정보 보호를 위하여 최신 버전 업데이트 이후 비밀번호를 변경하시기 바랍니다."
+    ),
+    "strCustNo": "0000000000",
+    "strMbCrdNo": "1234567890",
+    "strRedirectUrl": "https://example.invalid/password",
+}
+
 NO_RESULTS = {"strResult": "FAIL", "h_msg_cd": "P100", "h_msg_txt": "결과 없음"}
 
 OK = {"strResult": "SUCC"}

@@ -13,7 +13,7 @@ from Crypto.Util.Padding import unpad
 from pykorail.client import Korail
 from pykorail.constants import API_ENDPOINTS
 from pykorail.device import DEVICE_PROFILES
-from pykorail.exceptions import AccessRestrictedError, LoginFailedError
+from pykorail.exceptions import AccessRestrictedError, LoginFailedError, PasswordChangeRequiredError
 from tests.conftest import Reply
 from tests.dynapath_decoder import decode_token
 from tests.payloads import (
@@ -23,6 +23,7 @@ from tests.payloads import (
     LOGIN_FORM_GOLDEN,
     LOGIN_OK,
     LOGIN_OK_WITHOUT_PROFILE,
+    LOGIN_PASSWORD_CHANGE_REQUIRED,
     NUMERIC_IDX_CIPHER_PAYLOAD,
     PARTIAL_CIPHER_INFOS,
     UNUSABLE_CIPHER_PAYLOAD,
@@ -209,6 +210,91 @@ class TestLogin:
         # then
         assert exc.value.msg == "비밀번호가 틀렸습니다"
         assert exc.value.code == "WRC000000"
+
+    def test_password_change_notice_is_not_a_login(self, make_korail) -> None:
+        """서버는 이 응답을 SUCC 와 회원번호로 보내지만 세션을 인증하지 않습니다.
+
+        성공으로 치면 이후의 모든 호출이 이유 없이 P058 이 됩니다 (2026-10-13 실서버 확인).
+        """
+        # given
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": LOGIN_PASSWORD_CHANGE_REQUIRED})
+
+        # when & then
+        with pytest.raises(PasswordChangeRequiredError):
+            client.login("me@example.com", "pw")
+
+    def test_password_change_notice_leaves_the_account_empty(self, make_korail) -> None:
+        """응답에 회원번호가 실려 와도 계정에 옮겨 적지 않습니다."""
+        # given
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": LOGIN_PASSWORD_CHANGE_REQUIRED})
+
+        # when
+        with pytest.raises(PasswordChangeRequiredError):
+            client.login("me@example.com", "pw")
+
+        # then
+        assert (client.logined, client.membership_number) == (False, None)
+
+    def test_password_change_notice_carries_what_the_server_said(self, make_korail) -> None:
+        """안내문이 있어야 사용자가 비밀번호가 틀린 것이 아님을 압니다."""
+        # given
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": LOGIN_PASSWORD_CHANGE_REQUIRED})
+
+        # when
+        with pytest.raises(PasswordChangeRequiredError) as exc:
+            client.login("me@example.com", "pw")
+
+        # then
+        assert exc.value.code == "WRC000420"
+        assert str(exc.value.msg).startswith("6개월 이상 동일한 비밀번호")
+
+    def test_password_change_notice_is_still_a_login_failure(self, make_korail) -> None:
+        """기존의 ``except LoginFailedError`` 가 이 실패를 놓치면 안 됩니다."""
+        # given
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": LOGIN_PASSWORD_CHANGE_REQUIRED})
+
+        # when & then
+        with pytest.raises(LoginFailedError):
+            client.login("me@example.com", "pw")
+
+    def test_password_change_notice_clears_an_earlier_login(self, make_korail) -> None:
+        """다시 로그인하다 안내에 걸리면 앞선 로그인 상태가 남아 있으면 안 됩니다."""
+        # given
+        client, session = make_korail({"code": CIPHER_PAYLOAD, "login": LOGIN_OK})
+        client.login("me@example.com", "pw")
+        session.routes["login"] = LOGIN_PASSWORD_CHANGE_REQUIRED
+
+        # when
+        with pytest.raises(PasswordChangeRequiredError):
+            client.login("me@example.com", "pw")
+
+        # then
+        assert (client.logined, client.membership_number, client.name) == (False, None, None)
+
+    def test_notice_code_wins_even_when_the_profile_is_present(self, make_korail) -> None:
+        """판정 기준은 코드입니다. 프로필이 함께 와도 세션이 인증됐다는 근거는 아닙니다."""
+        # given
+        body = {**LOGIN_OK, "h_msg_cd": "WRC000420"}
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": body})
+
+        # when
+        with pytest.raises(PasswordChangeRequiredError):
+            client.login("me@example.com", "pw")
+
+        # then
+        assert not client.logined
+
+    def test_other_notices_on_a_successful_login_still_log_in(self, make_korail) -> None:
+        """성공 응답에 실린 다른 코드까지 실패로 뒤집지 않습니다 — 본 적 있는 것은 이 코드 하나입니다."""
+        # given
+        body = {**LOGIN_OK, "h_msg_cd": "IRZ000001", "h_msg_txt": "정상처리되었습니다"}
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": body})
+
+        # when
+        client.login("me@example.com", "pw")
+
+        # then
+        assert client.logined
 
     def test_falls_back_when_the_server_gives_no_reason(self, make_korail) -> None:
         # given
