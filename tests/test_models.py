@@ -12,6 +12,7 @@ import pytest
 from pykorail.models import (
     Car,
     CarSeat,
+    Fare,
     Reservation,
     Schedule,
     Seat,
@@ -25,17 +26,19 @@ from pykorail.models import (
     parse_transfers,
     train_info_of,
 )
-from pykorail.models.parsing import records
+from pykorail.models.parsing import amount, records
 from pykorail.models.schedule import WAITING_NOT_APPLICABLE, format_duration
 from tests.payloads import (
     CAR_INFO,
     CAR_SEAT_INFO,
     FIRST_LEG_INFO,
+    GENERAL_FARE_INFO,
     RESERVATION_INFO,
     SEAT_INFO,
     SEATABLE_TRAIN_INFO,
     SECOND_LEG_INFO,
     SOLD_OUT_SECOND_LEG_INFO,
+    SPECIAL_FARE_INFO,
     TICKET_RAW,
     TRAIN_INFO,
 )
@@ -756,3 +759,78 @@ class TestParseTransfers:
 
         # then
         assert transfers == []
+
+
+class TestFare:
+    def test_parses_a_fare(self) -> None:
+        # when
+        fare = Fare.from_response(GENERAL_FARE_INFO)
+
+        # then
+        assert fare == Fare(
+            train_no="101", journey_no="0001", seat_class_name="일반실", price=59800, charge=0, total=59800
+        )
+
+    def test_reads_amounts_the_way_the_server_prints_them(self) -> None:
+        """서버는 금액을 ``"59,800원"`` 으로 줍니다. 숫자로만 읽으면 오류 없이 0 원이 됩니다."""
+        # when
+        fare = Fare.from_response(SPECIAL_FARE_INFO)
+
+        # then
+        assert (fare.price, fare.charge, fare.total) == (59800, 23900, 83700)
+
+    def test_a_dash_means_no_charge(self) -> None:
+        """일반실은 요금 칸이 ``-`` 로 옵니다."""
+        # when
+        charge = Fare.from_response(GENERAL_FARE_INFO).charge
+
+        # then
+        assert charge == 0
+
+    def test_empty_response_does_not_raise(self) -> None:
+        # when
+        fare = Fare.from_response({})
+
+        # then
+        assert fare == Fare(train_no="", journey_no="", seat_class_name="", price=0, charge=0, total=0)
+
+
+class TestAmount:
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            ("48,000원", 48000),
+            ("1,234,500원", 1234500),
+            ("900원", 900),
+            ("48,000", 48000),
+            ("48000", 48000),
+            (" 48,000원 ", 48000),
+            ("-", 0),
+            (48000, 48000),
+        ],
+        ids=["won", "two-commas", "no-comma", "no-unit", "digits", "padded", "dash", "number"],
+    )
+    def test_reads_amounts(self, value: object, expected: int) -> None:
+        # when
+        found = amount({"x": value}, "x")
+
+        # then
+        assert found == expected
+
+    @pytest.mark.parametrize(
+        "data", [{}, {"x": None}, {"x": ""}, {"x": "무료"}], ids=["absent", "null", "blank", "text"]
+    )
+    def test_unreadable_amount_is_the_default(self, data: dict[str, object]) -> None:
+        # when
+        found = amount(data, "x", default=-1)
+
+        # then
+        assert found == -1
+
+    def test_a_dash_is_zero_even_with_another_default(self) -> None:
+        """``-`` 는 "못 읽음" 이 아니라 "해당 없음" 입니다."""
+        # when
+        found = amount({"x": "-"}, "x", default=-1)
+
+        # then
+        assert found == 0
