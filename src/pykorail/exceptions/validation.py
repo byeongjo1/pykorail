@@ -17,16 +17,18 @@ _MAX_SUGGESTIONS = 3
 
 
 class StationNotFoundError(PykorailError):
-    """역 마스터에 없는 역 이름입니다.
+    """역 마스터에 없는 역 이름입니다. 공항버스의 정류장 이름에도 같은 타입을 씁니다.
 
     조회를 보내 봐야 빈 결과만 돌아오므로, 요청 전에 막고 오타 후보를 함께 알려
     줍니다. 서버 응답이 아니라 클라이언트 검증이라
     :class:`~pykorail.exceptions.base.KorailError` 가 아닌 형제 타입입니다.
     """
 
-    def __init__(self, names: Sequence[str], known: Collection[str] = ()) -> None:
+    def __init__(self, names: Sequence[str], known: Collection[str] = (), *, noun: str = "역") -> None:
         #: 찾지 못한 역 이름들. 출발·도착이 둘 다 틀렸으면 둘 다 담깁니다.
         self.names = list(names)
+        #: 메시지에서 이름을 무엇이라 부를지. 잡는 타입은 하나로 두고 문구만 맞춥니다.
+        self.noun = noun
         #: 이름별 오타 후보.
         self.suggestions = {
             name: difflib.get_close_matches(name, known, n=_MAX_SUGGESTIONS, cutoff=_SUGGESTION_CUTOFF)
@@ -42,7 +44,7 @@ class StationNotFoundError(PykorailError):
                 parts.append(f"{name!r} (혹시 {', '.join(repr(c) for c in candidates)}?)")
             else:
                 parts.append(repr(name))
-        return f"존재하지 않는 역입니다: {', '.join(parts)}"
+        return f"존재하지 않는 {self.noun}입니다: {', '.join(parts)}"
 
 
 class PastDepartureError(PykorailError):

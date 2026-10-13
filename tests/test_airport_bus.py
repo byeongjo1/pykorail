@@ -15,6 +15,7 @@ from tests.payloads import (
     BUS_SCHEDULE_PAYLOAD,
     BUS_SEAT_MAP_PAYLOAD,
     BUS_STOPS_PAYLOAD,
+    NO_BUSES_PAYLOAD,
     NO_RESULTS,
 )
 
@@ -254,7 +255,7 @@ class TestSearch:
         client, session = make_korail(ROUTES)
 
         # when
-        with pytest.raises(StationNotFoundError, match="인천공항"):
+        with pytest.raises(StationNotFoundError, match="존재하지 않는 정류장입니다: '인천공항'"):
             client.airport_bus.search("광명역", "인천공항")
 
         # then
@@ -285,6 +286,18 @@ class TestSearch:
 
         # then
         assert buses == []
+
+    def test_direction_korail_does_not_sell_is_an_empty_list(self, make_korail) -> None:
+        """인천공항 → 광명역은 실서버가 "결과 없음" 으로 답합니다. 파는 편이 없는 것이지 오류가 아닙니다."""
+        # given
+        client, session = make_korail({**ROUTES, "bus_schedule": NO_BUSES_PAYLOAD})
+
+        # when
+        buses = client.airport_bus.search("인천공항T1", "광명역", MORNING)
+
+        # then
+        data = session.kwargs_for("bus_schedule")["data"]
+        assert (buses, data["dptRsStnCd"], data["arvRsStnCd"]) == ([], "0921", "0501")
 
     def test_goes_in_the_form_body_unsigned(self, make_korail) -> None:
         # given

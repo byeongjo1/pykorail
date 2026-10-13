@@ -314,6 +314,10 @@ BUS_SCHEDULE_PAYLOAD = {
     "trainList": [BUS_INFO, FULL_BUS_INFO],
 }
 
+#: 편이 없는 구간의 응답 (2026-10-13 실서버). 인천공항 → 광명역처럼 코레일이 팔지 않는
+#: 방향도 이 모양으로 옵니다.
+NO_BUSES_PAYLOAD = {"strResult": "FAIL", "h_msg_cd": "WRG000000", "h_msg_txt": "조회 결과가 없습니다."}
+
 #: 공항버스의 좌석 식별자와 표시는 둘 다 번호입니다("1"). 열차는 표시가 "15A" 같은 모양입니다.
 BUS_SEAT_INFO = {
     "seat_no": "1",

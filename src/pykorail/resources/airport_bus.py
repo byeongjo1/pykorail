@@ -33,7 +33,10 @@ _CAR_NO = "0001"
 
 
 class AirportBusResource(Resource):
-    """``korail.airport_bus`` — 공항버스 정류장 · 시간표 · 좌석 조회. 전부 로그인 없이 됩니다."""
+    """``korail.airport_bus`` — 공항버스 정류장 · 시간표 · 좌석 조회. 전부 로그인 없이 됩니다.
+
+    코레일이 파는 공항버스는 광명역에서 인천공항으로 가는 편뿐입니다.
+    """
 
     def __init__(self, api: ApiClient) -> None:
         super().__init__(api)
@@ -57,6 +60,10 @@ class AirportBusResource(Resource):
     def search(self, dep: str, arr: str, depart_after: datetime | None = None) -> list[AirportBus]:
         """공항버스 시간표를 조회합니다. 없으면 빈 리스트.
 
+        **코레일이 파는 것은 광명역에서 떠나는 편뿐입니다** — 광명역 → 인천공항T1 ·
+        인천공항T2. 반대 방향이나 송도국제교가 낀 구간은 조회가 "결과 없음" 으로 와서
+        빈 리스트가 됩니다. 앱도 출발 정류장을 하나로 고정하고 도착만 고르게 합니다.
+
         요청 필드는 코레일+ 7.0.8 의 ``ScdlQryIn`` 에서 확인했습니다.
 
         Args:
@@ -70,7 +77,7 @@ class AirportBusResource(Resource):
         by_name = {stop.name: stop for stop in self.stops()}
         unknown = [name for name in (dep, arr) if name not in by_name]
         if unknown:
-            raise StationNotFoundError(unknown, by_name)
+            raise StationNotFoundError(unknown, by_name.keys(), noun="정류장")
         moment = to_kst(depart_after)
 
         url = API_ENDPOINTS["bus_schedule"]
