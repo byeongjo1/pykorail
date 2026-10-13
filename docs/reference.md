@@ -213,6 +213,17 @@ for fare in korail.trains.fares(train):
 `search` · `search_transfers` 가 돌려준 열차나 환승 여정을 넘깁니다. 예약 목록 · 승차권의
 열차처럼 조회에 필요한 값(좌석 속성 등)이 없는 열차는 요청 전에 `ValueError` 로 막습니다.
 
+환승 여정은 **구간마다 줄이 나뉘어** 옵니다. 여정 전체의 금액은 객실을 고른 뒤 구간별
+`total` 을 더하세요. 상위 객실의 이름은 열차마다 달라서(`"특실"` · `"우등실"`), 이름이 아니라
+요금(`charge`)이 붙었는지로 가르는 편이 안전합니다.
+
+```python
+transfer = korail.trains.search_transfers("강릉", "목포")[0]
+fares = korail.trains.fares(transfer)
+
+print(sum(fare.total for fare in fares if fare.charge == 0))  # 두 구간 모두 일반실로 갈 때
+```
+
 > [!IMPORTANT]
 > **결제 금액이 아닙니다.** 할인 전의 기준 운임이고, 실제로 낼 금액은 예약한 뒤
 > `Reservation.price` 에 있습니다.
@@ -397,10 +408,11 @@ if fee.refundable and fee.fee < 10000:
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `train_no` | `str` | 열차 번호 |
-| `journey_no` | `str` | 여정 안의 구간 번호. 환승 여정은 구간마다 줄이 나뉩니다 |
-| `seat_class_name` | `str` | 객실 이름 (`"일반실"` · `"특실"`) |
-| `price` · `charge` | `int` | 운임 · 요금 |
-| `total` | `int` | 합계 |
+| `journey_no` | `str` | 여정 안의 구간 번호 (`"0001"` 부터). 환승 여정은 구간마다 줄이 나뉩니다 |
+| `seat_class_name` | `str` | 객실 이름 (`"일반실"` · `"특실"` · `"우등실"`). 열차에 따라 다릅니다 |
+| `price` | `int` | 운임(원). 객실과 무관하게 같습니다 |
+| `charge` | `int` | 요금(원). 특실 · 우등실에 붙고 일반실은 `0` |
+| `total` | `int` | 합계(원) — 운임 + 요금 |
 
 ### `Car`
 

@@ -372,7 +372,7 @@
         "signed": true,
         "login_required": false,
         "column_encoding": "열차별 값(paramList)은 열차마다 필드를 두지 않고 칸마다 구분자로 이어 한 필드로 보냄. 앱은 요청 모델을 폼으로 펼친 뒤 여덟 칸을 따로 put 하므로 값이 빈 gdNo 도 실림 (NetworkService 의 postPrcFare 호출부: joinToString 여덟 번 뒤 put 여덟 번). 필드 이름은 보호돼 있으나 암호문 길이(10·10·5·5·4·11·7·13)가 dptRsStnCd·arvRsStnCd·runDt·trnNo·gdNo·rqSeatAttCd·trnGpCd·stlbTrnClsfCd 와 순서대로 일치함.",
-        "verification": "pykorail 로 실서버에 보낸 요청은 없음. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(get_price_fare_quote, SUCC)과 같고, 여정 구분 · 열차 수의 값과 빈 gdNo 는 APK 에서 확인함(values). 확인되지 않은 것: 칸 구분자가 쉼표라는 것(앱의 상수는 한 글자라는 것만 읽힘, 그쪽 구현의 값), 열차번호를 0 으로 채워야 하는지, 금액 필드의 표기(숫자 문자열인지), 응답 봉투.",
+        "verification": "2026-10-13 실서버 조회로 확인 (fare_live_validation). 직통 한 편과 환승 여정 하나가 pykorail 의 요청 그대로 성공함. 칸 구분자 쉼표, 0 을 채우지 않은 열차번호, 서명은 있고 Sid 는 없는 요청, strResult 봉투가 모두 확인됨. 금액이 표시용 문자열로 온다는 것이 이 조회에서 드러나 파서를 고침.",
         "values": {
           "chtnDvCd · trnCnt": {
             "direct": "1 · 1",
@@ -380,9 +380,9 @@
             "source": "APK — TrainOpInfoViewModel.initUiData 의 PrcFareIn 생성부. 보호 도구가 정수 리터럴 N 을 `Integer.parseInt(\"N\") 비교 k ? a : b` 로 바꾼 뒤 문자열을 클래스 단위로 암호화하므로, 같은 클래스에서 정수로도 쓰인 십진 문자열 상수는 비교식에서 평문이 드러남 (앱 전체 392,100 개 비교식에서 예외 0 건)."
           },
           "gdNo": "앱이 null 을 넘겨 PrcFareInItem 의 기본값(빈 문자열)이 됨. 그래서 칸은 실리되 값은 빔.",
-          "trnNo": "앱은 화면이 들고 있는 열차번호(TrainOpInfoBasicData.trnNo)를 가공 없이 넘김. 그 값이 조회 응답의 h_trn_no 그대로인지는 추적하지 못함.",
+          "trnNo": "앱은 화면이 들고 있는 열차번호를 가공 없이 넘김. 조회 응답의 h_trn_no 그대로(0 을 채우지 않은 \"121\")로 실서버 성공.",
           "txtMenuId": "두 글자라는 것까지만 읽힘.",
-          "separator": "한 글자라는 것까지만 읽힘.",
+          "separator": "앱의 상수는 한 글자라는 것까지만 읽힘. 쉼표로 실서버 성공 (fare_live_validation).",
           "column_names": "이어 붙이는 람다의 클래스 이름이 NetworkService$prcFare$2$1$dptRsStnCd$1 처럼 칸 이름을 그대로 담고 있어, 암호문 길이로 맞춘 여덟 칸의 이름과 순서가 한 번 더 확인됨."
         }
       }
@@ -513,6 +513,67 @@
         "여정 안의 타는 순서는 h_chg_trn_seq('1', '2'). 응답의 줄 순서도 그 순서였음. pykorail 은 이 번호로 구간을 정렬함.",
         "환승역 응답의 항목에는 chtnRsStnCd · chtnRsStnNm 만 있었고 앱 모델의 chtnRsStnEngNm 은 없었음.",
         "환승 조회의 h_next_pg_flg 는 'N' 이었고 다음 쪽 값은 비어 있었음. 환승 결과의 쪽 이어 받기는 확인하지 않음."
+      ]
+    },
+    "fare_live_validation": {
+      "observed_at_kst": "2026-10-13",
+      "scope": "사용자가 이 건에 한해 승인한 로그인 없는 공개 조회. 직통 조회 1회 → 운임 1회 → 환승 조회 1회 → 운임 1회. 계정 없음.",
+      "requests": {
+        "direct": {
+          "route": [
+            "서울",
+            "부산"
+          ],
+          "train": "KTX",
+          "sent": {
+            "chtnDvCd": "1",
+            "trnCnt": "1",
+            "trnNo": "121",
+            "gdNo": "",
+            "rqSeatAttCd": "015",
+            "trnGpCd": "100",
+            "stlbTrnClsfCd": "00"
+          }
+        },
+        "transfer": {
+          "route": [
+            "강릉",
+            "서울",
+            "목포"
+          ],
+          "trains": [
+            "KTX-이음",
+            "KTX-산천"
+          ],
+          "sent": {
+            "chtnDvCd": "2",
+            "trnCnt": "2",
+            "trnNo": "802,409",
+            "gdNo": ",",
+            "rqSeatAttCd": "015,015",
+            "trnGpCd": "100,100",
+            "stlbTrnClsfCd": "16,07"
+          }
+        },
+        "headers": "x-dynapath-m-token 만. Sid 없음."
+      },
+      "findings": {
+        "envelope": "strResult=SUCC, h_msg_cd=API.I00000, h_msg_txt=Success. 응답 키는 이 셋과 prcList 뿐.",
+        "amount_format": "rcvdPrc · rcvdFare · sumAmt 는 표시용 문자열. 자릿수 쉼표와 '원' 이 붙고(\"48,000원\"), 해당 없는 칸은 \"-\".",
+        "meaning": "rcvdPrc 는 운임(객실과 무관하게 같음), rcvdFare 는 요금(일반실은 \"-\", 특실 · 우등실에만 금액), sumAmt 는 둘의 합.",
+        "rows": "직통은 객실마다 한 줄(일반실, 특실). 환승은 구간 × 객실로 네 줄이고 객실 순으로 먼저 묶임 — 일반실 1구간, 일반실 2구간, 상위 객실 1구간, 상위 객실 2구간.",
+        "jrnySqno": "네 자리 (\"0001\", \"0002\"). 요청의 열차 순서와 같음.",
+        "trnNo": "응답도 0 을 채우지 않은 번호 (\"121\").",
+        "psrmClNm": "상위 객실의 이름이 열차에 따라 다름 — KTX · KTX-산천은 \"특실\", KTX-이음은 \"우등실\"."
+      },
+      "code_changes": [
+        "Fare 의 금액을 parsing.amount() 로 읽음. 그전에는 integer() 라 실서버 응답의 모든 금액이 0 으로 읽혔음.",
+        "tests/payloads.py 의 운임 샘플을 실서버에서 본 모양으로 바꾸고 환승 여정 응답 샘플을 더함."
+      ],
+      "not_covered": [
+        "KTX 계열 밖의 열차(ITX · 무궁화 등)와 입석 · 자유석이 있는 열차의 응답.",
+        "매진 열차, 운행하지 않는 날의 응답.",
+        "천만 원 이상처럼 쉼표가 둘 이상인 금액은 실서버에서 본 것이 아니라 같은 규칙으로 읽히게 한 것."
       ]
     }
   }

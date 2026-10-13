@@ -42,6 +42,7 @@ from tests.payloads import (
     TICKET_LIST_PAYLOAD,
     TICKET_SEAT_PAYLOAD,
     TRAIN_INFO,
+    TRANSFER_FARE_PAYLOAD,
     TRANSFER_SEARCH_PAYLOAD,
     TRANSFER_STATIONS_PAYLOAD,
 )
@@ -902,6 +903,22 @@ class TestFares:
         assert [(fare.seat_class_name, fare.price, fare.charge, fare.total) for fare in fares] == [
             ("일반실", 59800, 0, 59800),
             ("특실", 59800, 23900, 83700),
+        ]
+
+    def test_transfer_fares_come_one_row_per_leg_and_class(self, make_korail) -> None:
+        """구간별 줄을 여정 번호로 가릅니다. 응답은 객실 순으로 먼저 묶여 옵니다."""
+        # given
+        client, _ = make_korail({**FARE_ROUTES, "fare": TRANSFER_FARE_PAYLOAD})
+
+        # when
+        fares = client.trains.fares(FARE_TRANSFER)
+
+        # then
+        assert [(fare.journey_no, fare.train_no, fare.seat_class_name, fare.total) for fare in fares] == [
+            ("0001", "101", "일반실", 23700),
+            ("0002", "1201", "일반실", 17800),
+            ("0001", "101", "특실", 33200),
+            ("0002", "1201", "우등실", 23300),
         ]
 
     def test_sends_exact_form_fields_in_the_apps_order(self, make_korail) -> None:
