@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pykorail.models.car import Car, CarSeat, SeatAttribute
 from pykorail.models.card import Card
+from pykorail.models.fare import Fare
 from pykorail.models.membership import Coupon, Mileage, MileageEntry
 from pykorail.models.passenger import (
     AdultPassenger,
@@ -42,6 +43,7 @@ __all__ = [
     "Coupon",
     "Disability1To3Passenger",
     "Disability4To6Passenger",
+    "Fare",
     "Mileage",
     "MileageEntry",
     "Passenger",

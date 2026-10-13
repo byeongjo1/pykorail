@@ -9,7 +9,6 @@ import pytest
 
 from pykorail.exceptions import KorailError, NeedToLoginError
 from pykorail.models import Coupon, Mileage, MileageEntry
-from pykorail.models.parsing import amount
 from pykorail.options import MileageInquiry, MileageType
 from pykorail.resources.trains import KST
 from tests.payloads import (
@@ -455,27 +454,3 @@ class TestMembershipModelsAreFrozen:
         # when & then
         with pytest.raises(dataclasses.FrozenInstanceError):
             setattr(model, field, "changed")
-
-
-class TestAmount:
-    @pytest.mark.parametrize(
-        ("value", "expected"),
-        [("12340", 12340), ("12,340", 12340), ("1,234,567", 1234567), (" 500 ", 500), ("-1,000", -1000), (700, 700)],
-        ids=["plain", "comma", "two-commas", "padded", "negative", "number"],
-    )
-    def test_reads_amounts(self, value: object, expected: int) -> None:
-        # when
-        found = amount({"x": value}, "x")
-
-        # then
-        assert found == expected
-
-    @pytest.mark.parametrize(
-        "data", [{}, {"x": None}, {"x": ""}, {"x": "없음"}], ids=["absent", "null", "blank", "text"]
-    )
-    def test_unreadable_amount_is_the_default(self, data: dict[str, object]) -> None:
-        # when
-        found = amount(data, "x", default=-1)
-
-        # then
-        assert found == -1

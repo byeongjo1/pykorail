@@ -433,3 +433,49 @@ TRANSFER_SEARCH_PAYLOAD = {
     "h_rslt_cnt": "4",
     "trn_infos": {"trn_info": [FIRST_LEG_INFO, SECOND_LEG_INFO, LATER_FIRST_LEG_INFO, SOLD_OUT_SECOND_LEG_INFO]},
 }
+
+# ---------------------------------------------------------------- 운임 조회
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고 (PrcFareOut · PrcFareOutItem),
+# 값의 **모양**(금액의 쉼표와 ``원``, 해당 없는 칸의 ``-``, 네 자리 구간 번호, 0 을 채우지
+# 않은 열차번호, 봉투의 코드)은 2026-10-13 실서버 조회에서 본 그대로입니다. 값 자체는 예시입니다.
+
+#: 일반실에는 요금이 없어 그 칸이 ``-`` 로 옵니다.
+GENERAL_FARE_INFO = {
+    "trnNo": "101",
+    "jrnySqno": "0001",
+    "psrmClNm": "일반실",
+    "rcvdPrc": "59,800원",
+    "rcvdFare": "-",
+    "sumAmt": "59,800원",
+}
+
+SPECIAL_FARE_INFO = {**GENERAL_FARE_INFO, "psrmClNm": "특실", "rcvdFare": "23,900원", "sumAmt": "83,700원"}
+
+FARE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "API.I00000",
+    "h_msg_txt": "Success",
+    "prcList": [GENERAL_FARE_INFO, SPECIAL_FARE_INFO],
+}
+
+#: 환승 여정의 응답. 구간마다 줄이 나뉘고, **객실 순으로 먼저** 묶여 옵니다 (일반실 두 구간,
+#: 그다음 상위 객실 두 구간). 상위 객실의 이름은 열차에 따라 다릅니다.
+TRANSFER_FARE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "API.I00000",
+    "h_msg_txt": "Success",
+    "prcList": [
+        {**GENERAL_FARE_INFO, "rcvdPrc": "23,700원", "sumAmt": "23,700원"},
+        {**GENERAL_FARE_INFO, "trnNo": "1201", "jrnySqno": "0002", "rcvdPrc": "17,800원", "sumAmt": "17,800원"},
+        {**SPECIAL_FARE_INFO, "rcvdPrc": "23,700원", "rcvdFare": "9,500원", "sumAmt": "33,200원"},
+        {
+            **SPECIAL_FARE_INFO,
+            "trnNo": "1201",
+            "jrnySqno": "0002",
+            "psrmClNm": "우등실",
+            "rcvdPrc": "17,800원",
+            "rcvdFare": "5,500원",
+            "sumAmt": "23,300원",
+        },
+    ],
+}

@@ -11,6 +11,7 @@ import pytest
 from pykorail.client import Korail
 from pykorail.constants import API_ENDPOINTS
 from tests.payloads import (
+    FARE_PAYLOAD,
     OK,
     REFUND_FEE_PAYLOAD,
     RESERVATION_LIST_PAYLOAD,
@@ -126,6 +127,7 @@ def korail(make_korail) -> tuple[Korail, FakeSession]:
             "search_schedule": SEARCH_PAYLOAD,
             "seat_cars": SEAT_CARS_PAYLOAD,
             "seat_map": SEAT_MAP_PAYLOAD,
+            "fare": FARE_PAYLOAD,
             "transfer_stations": TRANSFER_STATIONS_PAYLOAD,
             "myreservationview": RESERVATION_LIST_PAYLOAD,
             "myreservationlist": SEAT_DETAIL_PAYLOAD,

@@ -25,6 +25,7 @@ from pykorail.models import (
     Card,
     CarSeat,
     Coupon,
+    Fare,
     Mileage,
     MileageEntry,
     Passenger,
@@ -122,6 +123,7 @@ class TestModelFields:
             (MileageEntry, ["date", "kind_name", "reason", "amount"]),
             (Coupon, ["coupon_no", "title", "description", "tag", "valid_from", "valid_until", "guide"]),
             (Transfer, ["legs"]),
+            (Fare, ["train_no", "journey_no", "seat_class_name", "price", "charge", "total"]),
             (
                 CarSeat,
                 ["car_no", "seat_no", "label", "sale_flag", "direction", "attribute", "extra_attribute", "message"],
@@ -139,7 +141,7 @@ class TestModelFields:
 
     @pytest.mark.parametrize(
         "model",
-        [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer, Mileage, MileageEntry, Coupon],
+        [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer, Fare, Mileage, MileageEntry, Coupon],
     )
     def test_model_has_a_section(self, model: type) -> None:
         # when & then
