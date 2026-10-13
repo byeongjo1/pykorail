@@ -308,7 +308,7 @@ reservation = korail.reservations.create_with_seats(train, window, [AdultPasseng
 | 인자 | 설명 |
 | --- | --- |
 | `train` | `search` 가 돌려준 열차. 예약 목록 · 승차권의 열차는 구간 순서가 없어 쓸 수 없습니다. |
-| `seats` | `trains.seats()` 가 돌려준 좌석. **승객 한 명에 하나씩**, 전부 같은 객실이어야 합니다. 호차는 달라도 됩니다. |
+| `seats` | `trains.seats()` 가 돌려준 좌석. **승객 한 명에 하나씩**, 전부 같은 객실이어야 합니다. 호차는 달라도 됩니다. 리스트가 아니라 제너레이터를 넘겨도 됩니다. |
 | `passengers` | 생략 시 어른 1명. |
 
 객실(일반실 · 특실)은 좌석에 붙어 있어(`CarSeat.seat_class`) 따로 넘기지 않습니다. 좌석 수가
