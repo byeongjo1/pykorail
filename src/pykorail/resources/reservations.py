@@ -16,7 +16,7 @@ from pykorail.options import ReserveOption
 from pykorail.resources.base import Resource, without_blanks
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from pykorail.models.schedule import Train
     from pykorail.options import ReserveOptionCode
@@ -187,7 +187,7 @@ class ReservationResource(Resource):
     def create_with_seats(
         self,
         train: Train,
-        seats: Sequence[CarSeat],
+        seats: Iterable[CarSeat],
         passengers: Sequence[Passenger] | None = None,
     ) -> Reservation:
         """고른 좌석으로 열차를 예매합니다.
@@ -213,6 +213,9 @@ class ReservationResource(Resource):
             KorailError: 서버가 예매를 거부했거나(이미 팔린 좌석 등), 예매 후 예약을 다시
                 조회하지 못했습니다.
         """
+        # 제너레이터도 받습니다. 그대로 두면 타입 검사가 한 번 돌며 다 써 버리고, 이어지는
+        # len() 이 "CarSeat 를 넘기라" 대신 알 수 없는 TypeError 를 냅니다.
+        seats = tuple(seats)
         reduced = Passenger.reduce(passengers or [AdultPassenger()])
         total_count = sum(p.count for p in reduced)
         seat_class = self._seat_class_of(seats, total_count)

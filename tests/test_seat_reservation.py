@@ -188,6 +188,19 @@ class TestCreateWithSeats:
             "txtSeatNo2": "58",
         }
 
+    def test_accepts_a_generator_of_seats(self, chosen) -> None:
+        """예제의 대괄호를 괄호로 바꿔 넘겨도 됩니다. 한 번 훑으면 비는 것을 그대로 쓰면 엉뚱한 오류가 납니다."""
+        # given
+        client, session, train, seats = chosen
+        available = (seat for seat in seats if seat.is_available)
+
+        # when
+        reservation = client.reservations.create_with_seats(train, available)
+
+        # then
+        data = session.kwargs_for("reserve")["data"]
+        assert (reservation.rsv_id, data["txtSrcarCnt"], data["txtSeatNo1"]) == ("1234567890", "1", "57")
+
     def test_seat_count_is_seats_not_cars(self, chosen) -> None:
         """``txtSrcarCnt`` 는 이름과 달리 호차 수가 아닙니다. 다른 호차의 좌석을 섞어도 좌석 수입니다."""
         # given
@@ -338,6 +351,15 @@ class TestCreateWithSeatsRefusesBeforeAnyRequest:
         # when & then
         with pytest.raises(ValueError, match="빈 좌석"):
             client.reservations.create_with_seats(train, [broken])
+
+    def test_generator_of_the_wrong_things_still_says_what_to_pass(self, chosen) -> None:
+        # given
+        client, _, train, _ = chosen
+        assigned = (seat for seat in [Seat.from_response(SEAT_INFO)])
+
+        # when & then
+        with pytest.raises(TypeError, match="CarSeat"):
+            client.reservations.create_with_seats(train, assigned)
 
     def test_assigned_seat_is_not_a_seat_to_choose(self, chosen) -> None:
         """예약의 배정 좌석(``Seat``)을 넘기면 속성 오류 대신 무엇을 넘겨야 하는지 알려 줍니다."""
