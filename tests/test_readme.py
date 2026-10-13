@@ -21,6 +21,8 @@ from pykorail.device import DEVICE_PROFILES
 from pykorail.exceptions import KorailError
 from pykorail.exceptions.api import _coded_subclasses
 from pykorail.models import (
+    AirportBus,
+    BusStop,
     Car,
     Card,
     CarSeat,
@@ -38,6 +40,7 @@ from pykorail.models import (
 )
 from pykorail.options import MileageInquiry, MileageType, ReserveOption, TrainType
 from pykorail.resources import (
+    AirportBusResource,
     MembershipResource,
     ReservationResource,
     StationResource,
@@ -81,6 +84,7 @@ class TestResourceMethods:
             (ReservationResource, "korail.reservations"),
             (TicketResource, "korail.tickets"),
             (MembershipResource, "korail.membership"),
+            (AirportBusResource, "korail.airport_bus"),
         ],
         ids=lambda v: v if isinstance(v, str) else v.__name__,
     )
@@ -96,6 +100,7 @@ class TestResourceMethods:
             | set(public_methods(ReservationResource))
             | set(public_methods(TicketResource))
             | set(public_methods(MembershipResource))
+            | set(public_methods(AirportBusResource))
         ),
     )
     def test_every_resource_method_is_documented(self, method: str) -> None:
@@ -135,6 +140,11 @@ class TestModelFields:
             (MileageEntry, ["date", "kind_name", "movement", "detail", "amount"]),
             (Coupon, ["coupon_no", "title", "description", "tag", "valid_from", "valid_until", "guide"]),
             (Transfer, ["legs"]),
+            (BusStop, ["code", "name"]),
+            (
+                AirportBus,
+                ["bus_no", "dep_name", "arr_name", "dep_time", "arr_time", "remaining_seats", "price", "group"],
+            ),
             (Fare, ["train_no", "journey_no", "seat_class_name", "price", "charge", "total"]),
             (
                 CarSeat,
@@ -163,7 +173,23 @@ class TestModelFields:
 
     @pytest.mark.parametrize(
         "model",
-        [Card, Station, Seat, Reservation, Ticket, Train, Car, CarSeat, Transfer, Fare, Mileage, MileageEntry, Coupon],
+        [
+            Card,
+            Station,
+            Seat,
+            Reservation,
+            Ticket,
+            Train,
+            Car,
+            CarSeat,
+            Transfer,
+            Fare,
+            Mileage,
+            MileageEntry,
+            Coupon,
+            AirportBus,
+            BusStop,
+        ],
     )
     def test_model_has_a_section(self, model: type) -> None:
         # when & then

@@ -390,6 +390,47 @@ for page in range(2, used.page_count + 1):
     entries += korail.membership.mileage(since, inquiry=MileageInquiry.USE, page=page).entries
 ```
 
+### `korail.airport_bus`
+
+KTX 공항버스의 정류장 · 시간표 · 좌석을 조회합니다. **전부 로그인 없이 됩니다.**
+
+> [!IMPORTANT]
+> **코레일이 파는 것은 광명역에서 떠나는 편뿐입니다** — 광명역 → 인천공항T1 · 인천공항T2.
+> 인천공항 → 광명역이나 송도국제교가 낀 구간은 빈 리스트가 돌아옵니다. 버스가 안 다니는 것이
+> 아니라 코레일이 그 구간의 표를 팔지 않는 것입니다. 앱도 출발 정류장을 광명역 하나로
+> 고정하고 도착(T1 · T2)만 고르게 합니다.
+
+| 메서드 | 반환 | 설명 |
+| --- | --- | --- |
+| `stops(refresh=False)` | `list[BusStop]` | 정류장 목록. 클라이언트 수명 동안 캐시합니다. |
+| `search(dep, arr, depart_after=None)` | `list[AirportBus]` | 시간표. 없으면 빈 리스트. |
+| `seats(bus, passengers=None)` | `list[CarSeat]` | 한 편의 좌석 배치. |
+
+```python
+print([stop.name for stop in korail.airport_bus.stops()])
+# ['광명역', '인천공항T1', '인천공항T2', '송도국제교']
+
+buses = korail.airport_bus.search("광명역", "인천공항T1", datetime(2026, 10, 16, 6, 0))
+bus = next(bus for bus in buses if bus.has_seat())
+print(bus)  # [공항버스 08008] 10/16 06:00~06:50  광명역~인천공항T1  24석
+
+seats = korail.airport_bus.seats(bus)
+print([seat.seat_no for seat in seats if seat.is_available])
+```
+
+| 인자 | 설명 |
+| --- | --- |
+| `dep` · `arr` | 정류장 **이름** (`stops()` 의 `name`). 목록에 없으면 요청 전에 `StationNotFoundError`. 목록에 있어도 코레일이 팔지 않는 구간이면 빈 리스트입니다. |
+| `depart_after` | 그날, 이 시각 **이후** 출발. tz 없으면 KST 로 해석, 있으면 KST 로 변환. 생략 시 현재. |
+| `bus` | `search` 가 돌려준 편. |
+| `passengers` | 생략 시 어른 1명. |
+
+좌석은 열차의 좌석 조회와 같은 모델([`CarSeat`](#carseat))로 옵니다. 공항버스는 좌석 식별자와
+표시가 둘 다 번호(`"1"`)이고, 호차는 늘 `"0001"`, 객실은 일반실입니다.
+
+> [!NOTE]
+> 조회만 됩니다. 공항버스 **예매**는 아직 없습니다.
+
 ## 모델
 
 전부 불변(`frozen=True`)이고 `from_response()` 로 생성됩니다. `dataclasses.replace()`
@@ -513,6 +554,26 @@ for page in range(2, used.page_count + 1):
 | `is_available` | `bool` (속성) | 지금 살 수 있는 좌석인지 |
 | `direction` · `attribute` · `extra_attribute` | `str` | 방향 · 요청 좌석 · 기타 속성 코드 |
 | `message` | `str` | 좌석에 붙은 안내 문구 |
+
+### `AirportBus`
+
+`korail.airport_bus.search()` 가 돌려주는 공항버스 한 편입니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `bus_no` | `str` | 편 번호. 서버가 준 문자열 그대로입니다 (`"08008"`) |
+| `dep_name` · `dep_code` · `arr_name` · `arr_code` | `str` | 출발 · 도착 정류장의 이름과 코드 |
+| `run_date` · `dep_date` · `arr_date` | `str` | 운행일 · 출발일 · 도착일 `YYYYMMDD` |
+| `dep_time` · `arr_time` | `str` | 출발 · 도착 시각 `HHMMSS` |
+| `remaining_seats` | `int` | 남은 좌석 수 |
+| `price` | `int` | 운임(원). 어른 한 명 기준입니다 |
+| `group` · `bus_type` | `str` | 운행 그룹 코드 · 종별 코드 (`"980"` / `"98"`) |
+| `dep_run_order` · `arr_run_order` | `str` | 정류장의 운행 순서. 좌석 조회가 구간을 이 값으로 가리킵니다 |
+| `has_seat()` | `bool` (메서드) | 남은 좌석이 있는지 |
+
+### `BusStop`
+
+`korail.airport_bus.stops()` 가 돌려주는 정류장입니다 — `code` (`"0501"`) 와 `name` (`"광명역"`).
 
 ### `Mileage`
 

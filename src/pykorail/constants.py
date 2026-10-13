@@ -60,6 +60,8 @@ API_ENDPOINTS: Final[dict[str, str]] = {
     # 환불 수수료 사전조회. RefundsRequest 와 같은 refunds 패키지지만 폼 필드
     # 이름이 다릅니다 — 아래 refund_fee() 주석 참고.
     "refund_commission": f"{KORAIL_MOBILE}.refunds.CommissionView",
+    "bus_schedule": f"{KORAIL_MOBILE}.lmu.scdlQry.do",
+    "bus_seat_map": f"{KORAIL_MOBILE}.lms.TResidualSeatsResearch.do",
     "mileage": f"{KORAIL_MOBILE}.mlg.amtSpec.do",
     "coupons": f"{KORAIL_MOBILE}.passCard.CouponView",
     "code": f"{KORAIL_MOBILE}.common.code.do",

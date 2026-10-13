@@ -228,7 +228,8 @@
       "응답 샘플(tests/payloads.py)은 필드 이름이 APK, 값의 모양이 실서버 조회에서 온 것이고 값 자체는 예시.",
       "앱은 MyXPointView(xPoint.MyXPointView)를 포인트가 아니라 연락처 · 본인인증 · 복지 정보 표시에 씀. 그 응답의 포인트 필드(h_*_point)는 앱이 읽지 않아 뜻을 확인할 수 없어 넣지 않음. 앱이 보내는 point_dv_cd 는 \"-1\" (PrivacyManagerViewModel, value_recovery).",
       "할인쿠폰은 쿠폰이 없는 계정의 응답만 실서버로 확인함. 쿠폰이 실린 응답의 값 모양은 확인하지 못함.",
-      "좌석 지정 예매는 어른만 · 같은 호차 · 일반실로 실서버에서 확인함 (좌석 하나와 좌석 둘, 예약 뒤 즉시 취소). 특실 · 다른 승객 종류 · 서로 다른 호차는 확인하지 않음."
+      "좌석 지정 예매는 어른만 · 같은 호차 · 일반실로 실서버에서 확인함 (좌석 하나와 좌석 둘, 예약 뒤 즉시 취소). 특실 · 다른 승객 종류 · 서로 다른 호차는 확인하지 않음.",
+      "공항버스 시간표 조회는 앱이 싣는 rsvSaleDvCd(한 글자, 평문 미상) 없이 보냄. 그 모양으로 실서버 성공을 확인했으나 앱의 요청과 한 칸이 다름."
     ],
     "value_recovery": {
       "what": "보호된 문자열 상수 가운데 십진 정수로 된 것은 평문을 읽을 수 있음.",
@@ -584,6 +585,114 @@
         "signed": true,
         "login_required": true,
         "verification": "2026-10-13 실서버에서 두 번 확인 (seat_reservation_live_validation). 좌석 하나(어른 1)와 좌석 둘(어른 2) 모두 pykorail 의 요청 그대로 예약됐고(SUCC/IRR000018), 돌려받은 예약의 좌석이 고른 좌석과 같았으며, 바로 취소해 예약이 남지 않음. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_seat_designated)과도 같음."
+      },
+      {
+        "resource": "airport_bus.stops",
+        "path": "/classes/com.korail.mobile.common.code.do",
+        "declaration": "NetworkApi.postCommonCodeMulti — @FormUrlEncoded @POST, @FieldMap + @Field(\"code\") List<String>. 로그인의 암호화 키 조회와 같은 엔드포인트.",
+        "request_model": "CommonCodeIn + code 목록",
+        "response_models": [
+          "CommonCodeOut"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "code",
+          "code",
+          "code"
+        ],
+        "values": {
+          "code": "app.limousine.stationNm · app.limousine.stationCd · app.limousine.airportBusMsg — 앱의 AirportBusBaseViewModel.requestCommonCode 가 세 키를 목록으로 넘김. 키 문자열은 보호돼 있으나 길이(23 · 23 · 27)가 응답 모델의 직렬 이름과 순서대로 일치하고, 그 화면이 응답에서 읽는 것도 이 셋(getAppLimousineStationCd · Nm · AirportBusMsg).",
+          "not_sent": "요청 모델의 deviceWidth · deviceHeight · OSVersion 은 싣지 않음 — 없이 성공함."
+        },
+        "signed": false,
+        "login_required": false,
+        "verification": "2026-10-13 실서버 조회로 확인 (airport_bus_live_validation)."
+      },
+      {
+        "resource": "airport_bus.search",
+        "path": "/classes/com.korail.mobile.lmu.scdlQry.do",
+        "declaration": "NetworkApi.postScdlQry — @FormUrlEncoded @POST, @FieldMap",
+        "request_model": "ScdlQryIn",
+        "response_models": [
+          "ScdlQryOut",
+          "ScdlQryOutTrain"
+        ],
+        "request_fields": [
+          "dptDt",
+          "dptRsStnCd",
+          "arvRsStnCd",
+          "trnGpCd",
+          "psrmClCd",
+          "dptTm",
+          "trnNo",
+          "seatAttCd",
+          "rsvSaleDvCd"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "dptDt",
+          "dptRsStnCd",
+          "arvRsStnCd",
+          "trnGpCd",
+          "psrmClCd",
+          "dptTm"
+        ],
+        "values": {
+          "dptDt · dptTm": "앱이 출발 시각을 8자 · 6자 형식으로 넣음 (AirportBusScheduleViewModel). YYYYMMDD · HHMMSS 로 실서버 성공.",
+          "dptRsStnCd · arvRsStnCd": "정류장 목록의 코드.",
+          "psrmClCd": "1 — APK (ScdlQryIn 의 기본값, value_recovery)",
+          "trnGpCd": "980 — 앱의 기본값은 세 글자라는 것까지만 읽힘. 이 필드 없이 보낸 조회의 응답 행이 전부 trnGpCd=980 을 싣고 있었고, 980 을 넣은 조회도 성공함.",
+          "trnNo · seatAttCd": "앱의 기본값이 빈 문자열이라 실리지 않음.",
+          "rsvSaleDvCd": "앱의 기본값은 한 글자 — 평문을 읽지 못해 싣지 않음. 없이 성공함."
+        },
+        "signed": false,
+        "login_required": false,
+        "verification": "2026-10-13 실서버 조회로 확인 (airport_bus_live_validation). 앱이 싣는 rsvSaleDvCd 한 칸이 빠진 요청이라는 점이 앱과 다름."
+      },
+      {
+        "resource": "airport_bus.seats",
+        "path": "/classes/com.korail.mobile.lms.TResidualSeatsResearch.do",
+        "declaration": "NetworkApi.postAirportBusTResidualSeatsResearch — @FormUrlEncoded @POST, @FieldMap",
+        "request_model": "TResidualSeatsResearchIn (열차 좌석 조회와 같은 모델)",
+        "response_models": [
+          "TResidualSeatsResearchOut",
+          "TResidualSeatsResearchOutSeat"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "trnClsfCd",
+          "trnGpCd",
+          "runDt",
+          "trnNo",
+          "srcarNo",
+          "psrmClCd",
+          "dptRsStnCd",
+          "arvRsStnCd",
+          "dptStnRunOrdr",
+          "arvStnRunOrdr",
+          "totPsgCnt",
+          "isArrow"
+        ],
+        "values": {
+          "source": "앱의 AirportBusSeatMapViewModel 이 요청을 만드는 자리",
+          "trnClsfCd": "앱은 두 글자 상수. 시간표 행의 stlbTrnClsfCd(98)를 보냄.",
+          "srcarNo": "앱은 네 글자 상수. 0001 로 실서버 성공 (응답의 scar_no 도 0001).",
+          "trnGpCd · runDt · trnNo · psrmClCd · dptRsStnCd · arvRsStnCd · dptStnRunOrdr · arvStnRunOrdr": "앱은 시간표 행으로 만든 여정에서 그대로 옮김.",
+          "seatAttCd": "앱의 값이 빈 문자열이라 실리지 않음.",
+          "isArrow": "false — 요청 모델의 기본값."
+        },
+        "signed": false,
+        "login_required": false,
+        "verification": "2026-10-13 실서버 조회로 확인 (airport_bus_live_validation). 로그인 없이 성공함."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -937,6 +1046,93 @@
         "result": "SUCC/IRR000018. 예약을 다시 조회하니 배정 좌석이 1호차 29번과 35번 — 고른 두 좌석 그대로. 좌석 수 2, 금액은 한 좌석의 두 배.",
         "meaning": "좌석 목록에 번호를 붙여 늘리는 방식(txtSrcarNo2 · txtSeatNo2)이 맞음. 둘째 좌석이 조용히 빠지지 않음.",
         "cancel": "SUCC/IRG000000. 취소 뒤 예약 목록은 0건."
+      }
+    },
+    "airport_bus_live_validation": {
+      "observed_at_kst": "2026-10-13",
+      "scope": "사용자가 승인한 로그인 없는 공개 조회. 값을 좁히는 탐색 네 번(정류장 목록 1, 시간표 2, 좌석 1)과, 완성된 리소스(korail.airport_bus)로 다시 돌린 다섯 번(정류장 목록 2, 시간표 3 가운데 성공 1, 좌석 1). 계정 없음. 그 뒤 어느 구간에 편이 있는지 가리려고 구간 여덟 가지를 한 번씩 더 조회함(정류장 목록 1, 시간표 8).",
+      "stops": {
+        "envelope": "strResult=SUCC, h_msg_cd=API.I00000. 응답에 loginFlg=N 이 함께 옴.",
+        "app.limousine.stationNm": [
+          "광명역",
+          "인천공항T1",
+          "인천공항T2",
+          "송도국제교"
+        ],
+        "app.limousine.stationCd": [
+          "0501",
+          "0921",
+          "0923",
+          "0924"
+        ],
+        "app.limousine.airportBusMsg": "안내 문구 한 줄.",
+        "shape": "이름과 코드가 같은 길이의 두 목록으로 따로 옴. 순서대로 짝지음."
+      },
+      "schedule": {
+        "without_trnGpCd": "trnGpCd 없이(psrmClCd=1, dptTm=060000) 보낸 조회가 SUCC/IRG000000, 39행. 모든 행이 trnGpCd=980 · stlbTrnClsfCd=98.",
+        "app_shape": "trnGpCd=980 · psrmClCd=1 · dptTm=090000 으로 보낸 조회가 SUCC/IRG000000, 30행. 첫 행의 출발이 09:10 — dptTm 이후의 편만 옴.",
+        "envelope": "strResult=SUCC, h_msg_cd=IRG000000. 같은 값이 msgCd · msgTxt 에도 옴. lgtmShtmDvCd=2, fllwPgExt=N.",
+        "row_keys": [
+          "arvDt",
+          "arvRsStnCd",
+          "arvStnRunOrdr",
+          "arvTm",
+          "chtnDvCd",
+          "dptDt",
+          "dptRsStnCd",
+          "dptStnRunOrdr",
+          "dptTm",
+          "gnrmRestSeatNum",
+          "ocurDlayTnum",
+          "rcvdPrc",
+          "restFresNum",
+          "restStndNum",
+          "runDt",
+          "sprmRestSeatNum",
+          "stlbTrnClsfCd",
+          "trnGpCd",
+          "trnNo",
+          "trnOrdrNo",
+          "ymsAplFlg"
+        ],
+        "value_shapes": {
+          "trnNo": "다섯 자리, 0 을 채움 (08008).",
+          "gnrmRestSeatNum": "여섯 자리, 0 을 채움. 특실 칸(sprmRestSeatNum)은 -00001.",
+          "rcvdPrc": "열네 자리, 0 을 채움 (00000000016000). 쉼표 · 단위 없음.",
+          "dptStnRunOrdr · arvStnRunOrdr": "여섯 자리 (000001 · 000002).",
+          "names": "정류장 이름은 오지 않음. 코드만 옴."
+        }
+      },
+      "seats": {
+        "sent": "trnClsfCd=98 · trnGpCd=980 · srcarNo=0001 · psrmClCd=1 · totPsgCnt=1 · isArrow=false 와 시간표 행의 값. seatAttCd 없음.",
+        "result": "로그인 없이 SUCC/IRG000000. scar_no=0001, 좌석 28개 가운데 18개가 판매 가능.",
+        "seat_shape": "열차 좌석 조회와 같은 키. seat_no 와 seat_spec 이 둘 다 번호('1').",
+        "extra_keys": "car_tp_cd · seat_ary_cd · up_dn_dv_cd · seat_total_count · seat_remain_count · windowList · layout_type · vrBnrUrl — pykorail 은 읽지 않음."
+      },
+      "not_covered": [
+        "앱이 싣는 rsvSaleDvCd 를 넣었을 때의 차이 — 앱이 조회할 수 있는 구간(광명역 → T1 · T2)은 그 값 없이도 전부 옴.",
+        "인천공항T1 → 인천공항T2 같은 중간 구간의 운임 · 좌석이 맞는 값인지. 앱이 팔지 않는 구간임.",
+        "공항버스 예매 — 이 조회들만으로는 예매하지 못함."
+      ],
+      "resource_run": {
+        "forward": "airport_bus.stops() → search('광명역', '인천공항T1') → seats(bus) 가 그대로 동작함. 시간표 36편, 첫 편 07:10~08:00, 운임 16000, 좌석 28개 가운데 18개 판매 가능. 좌석은 호차 0001 · 객실 1 로 읽힘.",
+        "reverse": "search('인천공항T1', '광명역') 는 FAIL/WRG000000 '조회 결과가 없습니다.' — 빈 리스트로 돌려줌. 코레일이 팔지 않는 방향임이 확인됨 (directions).",
+        "no_results_envelope": "편이 없을 때는 strResult=FAIL, h_msg_cd=WRG000000 이고 trainList 가 오지 않음."
+      },
+      "directions": {
+        "question": "인천공항 → 광명역이 비는 것이 사실인지, 앱이 싣는 rsvSaleDvCd 가 빠져서인지.",
+        "app": "AirportBusBaseViewModel 이 정류장 셋을 **코드 상수**로 만듦 — 출발 하나(소요 시간 없음), 도착 둘(문구 '50분 소요 예상' · '1시간 10분 소요 예상'). 도착 선택지는 그 둘뿐이고, 화면에 도착 정류장을 바꾸는 기능(updateArrivalStation)만 있고 출발을 바꾸는 기능은 없음. 승차권 상세의 타는 곳도 '광명역 1층 4번 출구' 로 고정.",
+        "live": {
+          "observed": "하루 전체(00:00 이후)로 조회",
+          "광명역 → 인천공항T1": "42편, 04:50~20:30, 50분 소요",
+          "광명역 → 인천공항T2": "42편, 04:50~20:30, 1시간 10분 소요",
+          "광명역 → 송도국제교": "결과 없음 (FAIL/WRG000000)",
+          "인천공항T1 → 광명역": "결과 없음 — 서로 다른 이틀 모두",
+          "인천공항T2 → 광명역": "결과 없음",
+          "송도국제교 → 광명역": "결과 없음",
+          "인천공항T1 → 인천공항T2": "42편 (광명역발 편의 중간 구간). 앱은 이 구간을 고를 수 없음."
+        },
+        "conclusion": "코레일이 파는 것은 광명역에서 떠나는 편뿐. 소요 시간이 앱의 문구와 일치하고, 반대 방향은 앱이 조회 자체를 만들지 못하므로 빠진 필드의 영향이 아님. 빈 리스트가 사실."
       }
     }
   },

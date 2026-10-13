@@ -160,6 +160,21 @@ for ticket in korail.tickets.all():
 </details>
 
 <details>
+<summary><b>공항버스 시간표 · 좌석 보기</b></summary>
+
+로그인 없이 됩니다. 코레일이 파는 것은 광명역 → 인천공항(T1 · T2) 방향뿐입니다.
+
+```python
+buses = korail.airport_bus.search("광명역", "인천공항T1")
+bus = next(bus for bus in buses if bus.has_seat())
+
+print(bus, bus.price)
+print([seat.seat_no for seat in korail.airport_bus.seats(bus) if seat.is_available])
+```
+
+</details>
+
+<details>
 <summary><b>마일리지 · 할인쿠폰 보기</b></summary>
 
 ```python

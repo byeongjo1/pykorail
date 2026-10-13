@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+from pykorail.models.bus import AirportBus, BusStop, parse_bus_stops
 from pykorail.models.car import Car, CarSeat, SeatAttribute
 from pykorail.models.card import Card
 from pykorail.models.fare import Fare
@@ -36,6 +37,8 @@ from pykorail.models.transfer import Transfer, TransferStation, parse_transfers
 
 __all__ = [
     "AdultPassenger",
+    "AirportBus",
+    "BusStop",
     "Car",
     "CarSeat",
     "Card",
@@ -59,6 +62,7 @@ __all__ = [
     "Train",
     "Transfer",
     "TransferStation",
+    "parse_bus_stops",
     "parse_stations",
     "parse_transfers",
     "train_info_of",

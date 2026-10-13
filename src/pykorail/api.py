@@ -17,6 +17,8 @@ from pykorail.exceptions import AccessRestrictedError, HttpStatusError, Transpor
 from pykorail.models.parsing import text
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from pykorail.auth.signer import RequestSigner
     from pykorail.transport import HttpSession, Response
 
@@ -76,10 +78,16 @@ class ApiClient:
         self,
         url: str,
         *,
-        data: dict[str, Any] | None = None,
+        data: dict[str, Any] | Sequence[tuple[str, Any]] | None = None,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
+        """폼 본문으로 POST 합니다.
+
+        ``data`` 는 보통 dict 입니다. 같은 이름의 필드를 여러 번 실어야 할 때만
+        ``(이름, 값)`` 쌍의 목록으로 넘깁니다 — dict 의 값에 목록을 넣으면 curl_cffi 가
+        그것을 반복 필드가 아니라 문자열 하나로 인코딩합니다.
+        """
         return self._parse(self._session.post(url, **_kwargs(data=data, params=params, headers=headers)))
 
     def close(self) -> None:

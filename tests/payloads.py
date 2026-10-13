@@ -253,6 +253,101 @@ ACCESS_RESTRICTED = {
     ),
 }
 
+# ---------------------------------------------------------------- 공항버스
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고(CommonCodeOut · ScdlQryOut ·
+# ScdlQryOutTrain · TResidualSeatsResearchOut), 키 구성과 값의 **모양**은 2026-10-13 실서버
+# 조회에서 본 그대로입니다 — 정류장 넷, 0 을 채운 편 번호 · 좌석 수 · 운임, 봉투의 코드.
+# 시각과 남은 좌석 수는 예시입니다.
+
+BUS_STOPS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "API.I00000",
+    "h_msg_txt": "Success",
+    "loginFlg": "N",
+    "app.limousine.stationNm": ["광명역", "인천공항T1", "인천공항T2", "송도국제교"],
+    "app.limousine.stationCd": ["0501", "0921", "0923", "0924"],
+    "app.limousine.airportBusMsg": "광명역 도심공항터미널 이용 안내",
+}
+
+#: 특실이 없어 그 칸은 음수로 옵니다. 운임은 열네 자리로 0 을 채웁니다.
+BUS_INFO = {
+    "trnOrdrNo": "001",
+    "chtnDvCd": "1",
+    "dptRsStnCd": "0501",
+    "arvRsStnCd": "0921",
+    "trnNo": "08008",
+    "ymsAplFlg": "N",
+    "trnGpCd": "980",
+    "runDt": "20261016",
+    "dptDt": "20261016",
+    "dptTm": "060000",
+    "arvDt": "20261016",
+    "arvTm": "065000",
+    "ocurDlayTnum": "000000",
+    "gnrmRestSeatNum": "000024",
+    "sprmRestSeatNum": "-00001",
+    "restStndNum": "000000",
+    "restFresNum": "000000",
+    "stlbTrnClsfCd": "98",
+    "dptStnRunOrdr": "000001",
+    "arvStnRunOrdr": "000002",
+    "rcvdPrc": "00000000016000",
+}
+
+FULL_BUS_INFO = {
+    **BUS_INFO,
+    "trnOrdrNo": "002",
+    "trnNo": "08010",
+    "dptTm": "063000",
+    "arvTm": "072000",
+    "gnrmRestSeatNum": "000000",
+}
+
+BUS_SCHEDULE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRG000000",
+    "h_msg_txt": "정상처리되었습니다",
+    "msgCd": "IRG000000",
+    "msgTxt": "정상처리되었습니다",
+    "lgtmShtmDvCd": "2",
+    "fllwPgExt": "N",
+    "trainList": [BUS_INFO, FULL_BUS_INFO],
+}
+
+#: 편이 없는 구간의 응답 (2026-10-13 실서버). 인천공항 → 광명역처럼 코레일이 팔지 않는
+#: 방향도 이 모양으로 옵니다.
+NO_BUSES_PAYLOAD = {"strResult": "FAIL", "h_msg_cd": "WRG000000", "h_msg_txt": "조회 결과가 없습니다."}
+
+#: 공항버스의 좌석 식별자와 표시는 둘 다 번호입니다("1"). 열차는 표시가 "15A" 같은 모양입니다.
+BUS_SEAT_INFO = {
+    "seat_no": "1",
+    "seat_spec": "1",
+    "sale_psb_flg": "Y",
+    "dir_seat_att_cd": "009",
+    "rq_seat_att_cd": "015",
+    "etc_seat_att_cd": "000",
+    "sqr_no": "000",
+    "vz_msg_dv_cd": "",
+    "intg_msg_cd": "",
+    "intg_msg": "",
+}
+
+BUS_SEAT_MAP_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRG000000",
+    "h_msg_txt": "정상처리되었습니다",
+    "scar_no": "0001",
+    "car_tp_cd": "10283101",
+    "seat_ary_cd": "3",
+    "up_dn_dv_cd": "U",
+    "vrBnrUrl": "",
+    "seat_total_count": 28,
+    "seat_remain_count": 18,
+    "windowList": [],
+    "layout_type": 1,
+    "seatList": [BUS_SEAT_INFO, {**BUS_SEAT_INFO, "seat_no": "2", "seat_spec": "2", "sale_psb_flg": "N"}],
+}
+
 # ---------------------------------------------------------------- 마일리지 · 할인쿠폰
 # 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다(AmtSpecOut ·
 # AmtSpecOutSpecInfo · CouponOut · CouponOutInfo).
