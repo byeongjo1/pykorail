@@ -11,7 +11,7 @@
         reservation = korail.reservations.create(trains[0])
 
 API 는 리소스별로 나뉘어 있습니다 — ``korail.stations`` / ``korail.trains`` /
-``korail.reservations`` / ``korail.tickets``. 로그인·로그아웃·연결 정리만
+``korail.reservations`` / ``korail.tickets`` / ``korail.membership``. 로그인·로그아웃·연결 정리만
 :class:`~pykorail.client.Korail` 본체에 있습니다.
 
 하위 모듈:
@@ -52,9 +52,12 @@ from pykorail.models import (
     Card,
     CarSeat,
     ChildPassenger,
+    Coupon,
     Disability1To3Passenger,
     Disability4To6Passenger,
     Fare,
+    Mileage,
+    MileageEntry,
     Passenger,
     RefundFee,
     Reservation,
@@ -69,7 +72,18 @@ from pykorail.models import (
     Transfer,
     TransferStation,
 )
-from pykorail.options import ReserveOption, ReserveOptionCode, SeatClass, SeatClassCode, TrainType, TrainTypeCode
+from pykorail.options import (
+    MileageInquiry,
+    MileageInquiryCode,
+    MileageType,
+    MileageTypeCode,
+    ReserveOption,
+    ReserveOptionCode,
+    SeatClass,
+    SeatClassCode,
+    TrainType,
+    TrainTypeCode,
+)
 
 
 def _resolve_version() -> str:
@@ -102,6 +116,7 @@ __all__ = [
     "CarSeat",
     "Card",
     "ChildPassenger",
+    "Coupon",
     "DeviceProfile",
     "DeviceProfileLike",
     "Disability1To3Passenger",
@@ -111,6 +126,12 @@ __all__ = [
     "Korail",
     "KorailError",
     "LoginFailedError",
+    "Mileage",
+    "MileageEntry",
+    "MileageInquiry",
+    "MileageInquiryCode",
+    "MileageType",
+    "MileageTypeCode",
     "NeedToLoginError",
     "NetFunnelError",
     "NetFunnelHelper",

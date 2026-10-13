@@ -160,6 +160,22 @@ for ticket in korail.tickets.all():
 </details>
 
 <details>
+<summary><b>마일리지 · 할인쿠폰 보기</b></summary>
+
+```python
+mileage = korail.membership.mileage()
+print(mileage.total, "마일리지,", mileage.expiring, "이번 달 소멸 예정")
+
+for entry in mileage.entries:  # 최근 30일의 적립 · 사용 내역
+    print(entry.date, entry.movement, entry.amount)  # 20261003 적립 2990
+
+for coupon in korail.membership.coupons():
+    print(coupon.title, coupon.valid_until)
+```
+
+</details>
+
+<details>
 <summary><b>기기 프로파일 고정하기</b> — 여러 번 실행한다면</summary>
 
 프로파일마다 합성 Android ID가 하나 생성되며, 같은 프로파일을 쓰는 클라이언트는

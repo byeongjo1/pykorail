@@ -253,6 +253,91 @@ ACCESS_RESTRICTED = {
     ),
 }
 
+# ---------------------------------------------------------------- 마일리지 · 할인쿠폰
+# 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로입니다(AmtSpecOut ·
+# AmtSpecOutSpecInfo · CouponOut · CouponOutInfo).
+#
+# 마일리지는 값의 **모양**이 2026-10-13 실서버 조회에서 본 그대로입니다 — 잔액은 0 을 채운
+# 아홉 자리(소멸 예정은 열한 자리), 쪽 수는 다섯 자리, 내역의 증감은 부호와 쉼표가 붙은
+# 표시용 문자열, 봉투의 코드와 문구. 응답에 오는 키도 그때 본 구성입니다. 값 자체는 예시입니다.
+#
+# 쿠폰은 **쿠폰이 없는 응답**(NO_COUPONS_PAYLOAD)만 실서버에서 봤습니다. 쿠폰이 실린
+# 응답(COUPON_INFO · COUPONS_PAYLOAD)의 값은 전부 예시이고 모양도 확인한 것이 아닙니다.
+
+MILEAGE_ENTRY_INFO = {
+    "rcpDvNm": "적립",
+    "dptDt": "20261003",
+    "mlgAcmDvCdNm": "마일리지 적립 (열차이용)",
+    "stlAmt": "00000059800",
+    "savePontValNum": "00000002990",
+    "pontAmt": "+2,990",
+    "pontDvNm": "KTX 마일리지",
+}
+
+USED_MILEAGE_ENTRY_INFO = {
+    **MILEAGE_ENTRY_INFO,
+    "rcpDvNm": "사용",
+    "dptDt": "20260921",
+    "mlgAcmDvCdNm": "코레일",
+    "pontAmt": "-1,000",
+}
+
+MILEAGE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRZ000001",
+    "h_msg_txt": "정상적으로 조회 되었습니다.",
+    "msgCd": "IRZ000001",
+    "msgTxt": "정상적으로 조회 되었습니다.",
+    "totAvlRailPontValNum": "000012340",
+    "totAvlAfltPontValNum": "000000500",
+    "totAcmRailPontValNum1": "000000000",
+    "totAvlRailPontValNum1": "000000660",
+    "totUseRailPontValNum1": "000000000",
+    "railNowSavePontValNum1": "000000000",
+    "delPontValNum": "00000000120",
+    "specList": [MILEAGE_ENTRY_INFO, USED_MILEAGE_ENTRY_INFO],
+    "qryCnt": "00000002",
+    "pgCnt": "00003",
+    "ktxMlgInfo": "철도포인트는 KTX마일리지와 동일한 방식으로 사용 가능합니다. 적립일로부터 5년간 유효합니다.",
+}
+
+COUPON_INFO = {
+    "h_cpn_no": "C202610120001234",
+    "h_disc_rt_amt_dv_cd": "1",
+    "h_fdcert_mg_st_dt": "20261001",
+    "h_fdcert_mg_cls_dt": "20261231",
+    "h_inwk_prc_disc_rt_amt": "10",
+    "h_wknd_prc_disc_rt_amt": "10",
+    "h_inwk_fare_disc_rt_amt": "0",
+    "h_wknd_fare_disc_rt_amt": "0",
+    "h_rmk_1_cont": "KTX 10% 할인쿠폰",
+    "h_rmk_2_cont": "주중 · 주말 모두 사용 가능",
+    "h_rmk_3_cont": "KTX",
+    "h_dscp_knd_cd": "01",
+    "guide": "한 번에 한 장만 쓸 수 있습니다.",
+}
+
+COUPONS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "IRZ000001",
+    "h_msg_txt": "정상적으로 조회 되었습니다.",
+    "h_tot_page_cnt": "1",
+    "h_page_no": "1",
+    "h_tot_cnt": "1",
+    "h_row_cnt": "1",
+    "coupon_infos": {"coupon_info": [COUPON_INFO]},
+}
+
+#: 쿠폰이 없을 때 (2026-10-13 실서버). 성공 봉투에 "결과 없음" 코드가 실리고, 목록을 싸는
+#: ``coupon_infos`` · ``coupon_info`` 키는 그대로 옵니다. 그 안이 빈 목록인지 null 인지는
+#: 보지 않았습니다 — 어느 쪽이든 빈 리스트로 읽습니다.
+NO_COUPONS_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "WRG000000",
+    "h_msg_txt": "조회 결과가 없습니다.",
+    "coupon_infos": {"coupon_info": []},
+}
+
 # ---------------------------------------------------------------- 호차 · 좌석 조회
 # 필드 이름은 코레일+ 7.0.8 의 응답 모델 선언 그대로이고(TrainScheduleOutTrainInfo ·
 # TrainResearchOut · TrainResearchOutCarInfo · TrainResearchOutSeatInfo ·

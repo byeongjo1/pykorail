@@ -24,7 +24,13 @@ from pykorail.constants import (
 from pykorail.crypto import encrypt_password
 from pykorail.device.android_id import validate_android_id
 from pykorail.exceptions import LoginFailedError, PasswordChangeRequiredError
-from pykorail.resources import ReservationResource, StationResource, TicketResource, TrainResource
+from pykorail.resources import (
+    MembershipResource,
+    ReservationResource,
+    StationResource,
+    TicketResource,
+    TrainResource,
+)
 from pykorail.transport import create_session
 
 if TYPE_CHECKING:
@@ -61,6 +67,7 @@ class Korail:
         trains: 시간표 조회 (:class:`~pykorail.resources.TrainResource`).
         reservations: 예매·결제·취소 (:class:`~pykorail.resources.ReservationResource`).
         tickets: 승차권 조회·환불 (:class:`~pykorail.resources.TicketResource`).
+        membership: 마일리지·할인쿠폰 조회 (:class:`~pykorail.resources.MembershipResource`).
         android_id: 실제 서명에 쓰는 ID. 저장한 뒤 생성자의 동명 인자로 복원할 수 있습니다.
 
     Raises:
@@ -92,6 +99,7 @@ class Korail:
         self.trains = TrainResource(self._api, self.stations, validate_stations)
         self.reservations = ReservationResource(self._api)
         self.tickets = TicketResource(self._api)
+        self.membership = MembershipResource(self._api)
 
     @classmethod
     def logged_in(
