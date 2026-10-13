@@ -11,7 +11,8 @@
         reservation = korail.reservations.create(trains[0])
 
 API 는 리소스별로 나뉘어 있습니다 — ``korail.stations`` / ``korail.trains`` /
-``korail.reservations`` / ``korail.tickets`` / ``korail.membership``. 로그인·로그아웃·연결 정리만
+``korail.reservations`` / ``korail.tickets`` / ``korail.membership`` /
+``korail.airport_bus``. 로그인·로그아웃·연결 정리만
 :class:`~pykorail.client.Korail` 본체에 있습니다.
 
 하위 모듈:
@@ -48,6 +49,8 @@ from pykorail.exceptions import (
 )
 from pykorail.models import (
     AdultPassenger,
+    AirportBus,
+    BusStop,
     Car,
     Card,
     CarSeat,
@@ -112,6 +115,8 @@ __version__ = _resolve_version()
 __all__ = [
     "AccessRestrictedError",
     "AdultPassenger",
+    "AirportBus",
+    "BusStop",
     "Car",
     "CarSeat",
     "Card",

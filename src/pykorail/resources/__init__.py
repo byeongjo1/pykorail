@@ -8,10 +8,12 @@
     korail.reservations.create(train)
     korail.tickets.list()
     korail.membership.mileage()
+    korail.airport_bus.search("광명역", "인천공항T1")
 """
 
 from __future__ import annotations
 
+from pykorail.resources.airport_bus import AirportBusResource
 from pykorail.resources.base import Resource
 from pykorail.resources.membership import MembershipResource
 from pykorail.resources.reservations import ReservationResource
@@ -20,6 +22,7 @@ from pykorail.resources.tickets import TicketResource
 from pykorail.resources.trains import TrainResource, to_kst
 
 __all__ = [
+    "AirportBusResource",
     "MembershipResource",
     "ReservationResource",
     "Resource",
