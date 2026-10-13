@@ -227,7 +227,8 @@
       "좌석 조회의 총 인원(totPsgCnt)에 유아를 넣는지는 확인하지 못함.",
       "응답 샘플(tests/payloads.py)은 필드 이름이 APK, 값의 모양이 실서버 조회에서 온 것이고 값 자체는 예시.",
       "앱은 MyXPointView(xPoint.MyXPointView)를 포인트가 아니라 연락처 · 본인인증 · 복지 정보 표시에 씀. 그 응답의 포인트 필드(h_*_point)는 앱이 읽지 않아 뜻을 확인할 수 없어 넣지 않음. 앱이 보내는 point_dv_cd 는 \"-1\" (PrivacyManagerViewModel, value_recovery).",
-      "할인쿠폰은 쿠폰이 없는 계정의 응답만 실서버로 확인함. 쿠폰이 실린 응답의 값 모양은 확인하지 못함."
+      "할인쿠폰은 쿠폰이 없는 계정의 응답만 실서버로 확인함. 쿠폰이 실린 응답의 값 모양은 확인하지 못함.",
+      "좌석 지정 예매는 어른만 · 같은 호차 · 일반실로 실서버에서 확인함 (좌석 하나와 좌석 둘, 예약 뒤 즉시 취소). 특실 · 다른 승객 종류 · 서로 다른 호차는 확인하지 않음."
     ],
     "value_recovery": {
       "what": "보호된 문자열 상수 가운데 십진 정수로 된 것은 평문을 읽을 수 있음.",
@@ -524,6 +525,65 @@
         "signed": false,
         "login_required": true,
         "verification": "2026-10-13 실서버 조회로 요청을 확인 (membership_live_validation). pykorail 의 요청 그대로 SUCC/WRG000000 — 쿠폰이 없는 계정이라 빈 결과. 쿠폰이 실린 응답의 값은 여전히 누구도 확인하지 못함."
+      },
+      {
+        "resource": "reservations.create_with_seats",
+        "path": "/classes/com.korail.mobile.certification.TicketReservation",
+        "declaration": "기존 예매와 같은 엔드포인트. 요청은 7.0.8 의 요청 모델을 폼으로 펼친 모양 — 기존 create() 의 폼과 다름.",
+        "request_model": "TicketReservationIn (passengerInfoList: TicketReservationInPassengerInfo, jrnyList: TicketReservationInJrny, srcarList: TicketReservationInSrcar)",
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "txtMenuId",
+          "txtJobId",
+          "hidFreeFlg",
+          "txtStndFlg",
+          "txtTotPsgCnt",
+          "txtSeatAttCd1",
+          "txtSeatAttCd2",
+          "txtSeatAttCd3",
+          "txtSeatAttCd4",
+          "txtSeatAttCd5",
+          "txtJrnyCnt",
+          "txtSrcarCnt",
+          "txtCompaCnt{n}",
+          "txtPsgTpCd{n}",
+          "txtDiscKndCd{n}",
+          "txtJrnyTpCd1",
+          "txtJrnySqno1",
+          "txtTrnNo1",
+          "txtTrnClsfCd1",
+          "txtTrnGpCd1",
+          "txtRunDt1",
+          "txtDptDt1",
+          "txtDptTm1",
+          "txtDptRsStnCd1",
+          "txtDptStnConsOrdr1",
+          "txtDptStnRunOrdr1",
+          "txtArvRsStnCd1",
+          "txtArvStnConsOrdr1",
+          "txtArvStnRunOrdr1",
+          "txtChgFlg1",
+          "txtPsrmClCd1",
+          "txtSrcarNo{n}",
+          "txtSeatNo{n}"
+        ],
+        "values": {
+          "txtJobId": "1103 — 앱의 좌석 선택 화면(TrainSeatMapViewModel)이 ReservationJobId.SEAT 를 실음. 그 값이 1103 이라는 것은 참조 구현의 실서버 성공 기록(네 글자라는 것까지만 APK 로 읽힘).",
+          "txtJrnyCnt": "1 — APK (TrainScheduleViewModel 의 TicketReservationIn 생성부, value_recovery)",
+          "txtSrcarCnt": "고른 좌석 수. 호차 수가 아님.",
+          "txtSrcarNo{n} · txtSeatNo{n}": "앱은 new TicketReservationInSrcar(선택한 호차 번호, 좌석의 seatNo) 를 만듦 — 호차는 서버가 준 문자열, 좌석은 화면 표시(seat_spec)가 아니라 식별자(seat_no).",
+          "journey": "앱은 조회 행의 값을 가공 없이 옮김 (TrainScheduleOutTrainInfo.toTicketReservationInput): hTrnNo · hTrnClsfCd · hTrnGpCd · hRunDt · hDptDt · hDptTm · hDptRsStnCd · hDptStnConsOrdr · hDptStnRunOrdr · hArvRsStnCd · hArvStnConsOrdr · hArvStnRunOrdr.",
+          "txtJrnyTpCd1 · txtJrnySqno1 · txtChgFlg1": "11 · 001 · N — 길이(둘 · — · 하나)만 APK 로 읽힘. 값은 참조 구현의 실서버 성공 기록.",
+          "txtSeatAttCd1–5": "000 · 000 · 000 · 015 · 000 — 세 글자라는 것까지만 APK 로 읽힘. 기존 create() 가 쓰는 값과 같음.",
+          "txtMenuId · hidFreeFlg · txtStndFlg": "11 · N · N — 기존 create() 가 쓰는 값과 같음.",
+          "blank": "txtGdNo · txtCardNo_{n} 처럼 값이 빈 필드는 실리지 않음 (form_flattening)."
+        },
+        "signed": true,
+        "login_required": true,
+        "verification": "2026-10-13 실서버에서 두 번 확인 (seat_reservation_live_validation). 좌석 하나(어른 1)와 좌석 둘(어른 2) 모두 pykorail 의 요청 그대로 예약됐고(SUCC/IRR000018), 돌려받은 예약의 좌석이 고른 좌석과 같았으며, 바로 취소해 예약이 남지 않음. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_seat_designated)과도 같음."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -815,6 +875,69 @@
         "두 쪽 이상인 내역 (pgCnt 가 1 보다 큰 경우), 내역이 없는 기간의 응답.",
         "KTX 삼성카드 마일리지 · 레일포인트 · 소멸 예정이 0 이 아닌 계정."
       ]
+    },
+    "seat_reservation_live_validation": {
+      "observed_at_kst": "2026-10-13",
+      "scope": "사용자가 건마다 승인한 본인 계정의 예약 → 즉시 취소, 두 번. 첫 번째는 어른 1 · 좌석 1, 두 번째는 어른 2 · 좌석 2. 각각 로그인 → 예약 목록 → 열차 조회 → 호차 → 좌석 → 좌석 지정 예매 → 예약 재조회 → 취소 → 예약 목록 → 로그아웃. 결제 없음. 계정 · 예약번호는 기록하지 않음.",
+      "train": {
+        "type": "무궁화호",
+        "route": [
+          "서울",
+          "부산"
+        ],
+        "h_trn_no": "1157",
+        "sent_as": "1157"
+      },
+      "request": {
+        "method": "POST, 폼 본문",
+        "headers": "x-dynapath-m-token 만. Sid 없음.",
+        "field_count": 37,
+        "sent": {
+          "txtMenuId": "11",
+          "txtJobId": "1103",
+          "hidFreeFlg": "N",
+          "txtStndFlg": "N",
+          "txtTotPsgCnt": "1",
+          "txtSeatAttCd1-5": "000 · 000 · 000 · 015 · 000",
+          "txtJrnyCnt": "1",
+          "txtSrcarCnt": "1",
+          "txtCompaCnt1 · txtPsgTpCd1 · txtDiscKndCd1": "1 · 1 · 000",
+          "txtJrnyTpCd1 · txtJrnySqno1 · txtChgFlg1": "11 · 001 · N",
+          "txtTrnClsfCd1 · txtTrnGpCd1": "02 · 102",
+          "txtDptStnConsOrdr1 · txtDptStnRunOrdr1": "000001 · 000001",
+          "txtArvStnConsOrdr1 · txtArvStnRunOrdr1": "000073 · 000029",
+          "txtPsrmClCd1": "1",
+          "txtSrcarNo1 · txtSeatNo1": "0001 · 29"
+        }
+      },
+      "findings": {
+        "reserve": "strResult=SUCC, h_msg_cd=IRR000018, h_msg_txt='결제기한 내 미결제 시 예약이 취소됩니다.' h_pnr_no 가 옴.",
+        "seat_honoured": "예약을 다시 조회하니 배정 좌석이 1호차 29번 일반실 — 고른 좌석(호차 0001, 식별자 29)과 같음. 서버가 다른 좌석을 임의로 주지 않음.",
+        "not_waiting": "대기가 아닌 좌석 예약으로 잡힘. 결제 기한이 붙음.",
+        "cons_orders": "조회 행에 구성 순서가 여섯 자리로 옴 (000001 · 000073). 운행 순서(000001 · 000029)와 값이 다름 — 둘을 같은 값으로 보내면 안 됨.",
+        "cancel": "기존 cancel() 로 취소됨 (SUCC/IRG000000). 취소 뒤 예약 목록은 0건.",
+        "response_keys": "h_pnr_no · h_wct_no · h_tot_rcvd_amt · h_ntisu_lmt_dt · h_ntisu_lmt_tm · jrny_infos · psg_infos 등. pykorail 은 h_pnr_no 만 읽고 나머지는 예약 재조회로 채움."
+      },
+      "code_changes": [],
+      "not_covered": [
+        "서로 다른 호차의 좌석을 섞은 요청.",
+        "승객 종류가 둘 이상인 경우(어른 + 어린이 — 승객 블록이 둘), 할인카드가 있는 승객.",
+        "특실 좌석 (txtPsrmClCd1=2), KTX 계열 열차.",
+        "이미 팔린 좌석을 고른 경우의 거절 응답."
+      ],
+      "two_seats": {
+        "sent": {
+          "field_count": 39,
+          "txtTotPsgCnt": "2",
+          "txtSrcarCnt": "2",
+          "txtCompaCnt1 · txtPsgTpCd1 · txtDiscKndCd1": "2 · 1 · 000 (어른 둘이 한 블록)",
+          "txtSrcarNo1 · txtSeatNo1": "0001 · 29",
+          "txtSrcarNo2 · txtSeatNo2": "0001 · 35"
+        },
+        "result": "SUCC/IRR000018. 예약을 다시 조회하니 배정 좌석이 1호차 29번과 35번 — 고른 두 좌석 그대로. 좌석 수 2, 금액은 한 좌석의 두 배.",
+        "meaning": "좌석 목록에 번호를 붙여 늘리는 방식(txtSrcarNo2 · txtSeatNo2)이 맞음. 둘째 좌석이 조용히 빠지지 않음.",
+        "cancel": "SUCC/IRG000000. 취소 뒤 예약 목록은 0건."
+      }
     }
   },
   "login_password_change_gate": {

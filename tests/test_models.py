@@ -499,6 +499,14 @@ class TestTrainSeatLookupFields:
         # then
         assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("000001", "000019", "015")
 
+    def test_parses_construction_orders(self) -> None:
+        """좌석을 지정한 예매가 운행 순서와 함께 돌려보내는 값입니다."""
+        # when
+        train = Train.from_response(SEATABLE_TRAIN_INFO)
+
+        # then
+        assert (train.dep_cons_order, train.arr_cons_order) == ("000001", "000028")
+
     def test_missing_fields_are_blank_not_an_error(self) -> None:
         """예약 목록 · 승차권 응답의 열차에는 이 필드들이 없습니다."""
         # when
@@ -506,6 +514,7 @@ class TestTrainSeatLookupFields:
 
         # then
         assert (train.dep_run_order, train.arr_run_order, train.seat_attribute) == ("", "", "")
+        assert (train.dep_cons_order, train.arr_cons_order) == ("", "")
 
 
 class TestCar:
@@ -558,11 +567,12 @@ class TestCar:
 class TestCarSeat:
     def test_parses_a_seat(self) -> None:
         # when
-        seat = CarSeat.from_response(CAR_SEAT_INFO, car_no="0003")
+        seat = CarSeat.from_response(CAR_SEAT_INFO, car_no="0003", seat_class="1")
 
         # then
         assert seat == CarSeat(
             car_no="0003",
+            seat_class="1",
             seat_no="57",
             label="15A",
             sale_flag="Y",
@@ -575,14 +585,14 @@ class TestCarSeat:
     @pytest.mark.parametrize(("flag", "expected"), [("Y", True), ("N", False), ("", False)])
     def test_available_only_when_the_sale_flag_says_so(self, flag: str, expected: bool) -> None:
         # when
-        seat = CarSeat.from_response({**CAR_SEAT_INFO, "sale_psb_flg": flag}, car_no="0003")
+        seat = CarSeat.from_response({**CAR_SEAT_INFO, "sale_psb_flg": flag}, car_no="0003", seat_class="1")
 
         # then
         assert seat.is_available is expected
 
     def test_empty_response_does_not_raise(self) -> None:
         # when
-        seat = CarSeat.from_response({}, car_no="0003")
+        seat = CarSeat.from_response({}, car_no="0003", seat_class="1")
 
         # then
         assert (seat.seat_no, seat.is_available) == ("", False)

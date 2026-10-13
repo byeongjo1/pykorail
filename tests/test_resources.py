@@ -1258,6 +1258,24 @@ class TestCarSeats:
         # then
         assert {seat.car_no for seat in seats} == {"0003"}
 
+    @pytest.mark.parametrize(
+        ("asked", "expected"),
+        [(None, "1"), (SeatClass.SPECIAL, "2")],
+        ids=["from-the-car", "as-asked"],
+    )
+    def test_seats_know_the_class_they_were_looked_up_in(self, make_korail, asked: str | None, expected: str) -> None:
+        """좌석 응답에는 객실이 없습니다. 좌석 지정 예매가 다시 묻지 않도록 조회 조건을 붙여 둡니다."""
+        # given
+        client, _ = make_korail(SEAT_ROUTES)
+        train = client.trains.search("서울", "부산")[0]
+        car = client.trains.cars(train)[0]
+
+        # when
+        seats = client.trains.seats(train, car, seat_class=asked)
+
+        # then
+        assert {seat.seat_class for seat in seats} == {expected}
+
     def test_sends_exact_form_fields(self, make_korail) -> None:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
         # given

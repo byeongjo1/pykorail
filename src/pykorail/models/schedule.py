@@ -131,6 +131,9 @@ class Train(Schedule):
     #: 출발·도착역의 운행 순서. 호차·좌석 조회가 구간을 이 값으로 가리킵니다.
     dep_run_order: str
     arr_run_order: str
+    #: 출발·도착역의 구성 순서. 좌석을 지정한 예매가 운행 순서와 함께 돌려보냅니다.
+    dep_cons_order: str
+    arr_cons_order: str
     #: 이 열차 행의 좌석 속성 코드 (``"015"`` 등). 호차·좌석 조회에 그대로 돌려보냅니다.
     seat_attribute: str
 
@@ -140,6 +143,8 @@ class Train(Schedule):
             **Schedule._fields_from(data),
             "dep_run_order": text(data, "h_dpt_stn_run_ordr"),
             "arr_run_order": text(data, "h_arv_stn_run_ordr"),
+            "dep_cons_order": text(data, "h_dpt_stn_cons_ordr"),
+            "arr_cons_order": text(data, "h_arv_stn_cons_ordr"),
             "seat_attribute": text(data, "h_seat_att_cd"),
             "reserve_possible": text(data, "h_rsv_psb_flg"),
             "reserve_possible_name": text(data, "h_rsv_psb_nm"),
