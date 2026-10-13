@@ -26,7 +26,7 @@ class KorailError(PykorailError):
     #: 이 예외 타입으로 승격할 코레일 응답 코드(``h_msg_cd``).
     codes: frozenset[str] = frozenset()
 
-    #: ``msg`` 를 생략했을 때 쓸 사람이 읽을 설명.
+    #: 서버가 메시지를 주지 않았을 때(또는 ``msg`` 를 생략했을 때) 쓸 사람이 읽을 설명.
     default_msg: str | None = None
 
     def __init__(self, msg: str | None = None, code: str | None = None) -> None:

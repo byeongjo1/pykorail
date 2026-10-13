@@ -563,7 +563,10 @@ PykorailError
 ```
 
 `except PykorailError` 하나로 라이브러리 유래 실패를 전부 잡을 수 있습니다.
-매칭되지 않은 코드는 서버 메시지를 담은 `KorailError` 로 올라옵니다.
+매칭되지 않은 코드는 `KorailError` 로 올라옵니다. 어느 쪽이든 서버가 준 메시지
+(`h_msg_txt`)와 코드(`h_msg_cd`)가 `msg` · `code` 에 실립니다 — 서버가 메시지를 주지
+않았을 때만 타입의 기본 문구(`"No Results"` 등)가 들어갑니다. **분기는 메시지가 아니라
+타입이나 `code` 로 하세요.** 문구는 서버가 바꿀 수 있습니다.
 
 ```python
 from pykorail import KorailError, SoldOutError

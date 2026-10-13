@@ -136,6 +136,20 @@ class TestHttpStatus:
         with pytest.raises(NeedToLoginError):
             api.check(payload)
 
+    def test_known_code_still_says_what_the_server_said(self) -> None:
+        """타입으로 승격되면서 서버의 안내문이 기본 문구로 바뀌면 원인이 사라집니다."""
+        # given
+        said = "로그아웃되었습니다. 다시 로그인하여 주십시오."
+        api = api_replying({"strResult": "FAIL", "h_msg_cd": "P058", "h_msg_txt": said})
+        payload = api.post(URL)
+
+        # when
+        with pytest.raises(NeedToLoginError) as exc:
+            api.check(payload)
+
+        # then
+        assert (exc.value.msg, exc.value.code) == (said, "P058")
+
     def test_non_json_success_is_a_plain_transport_error(self) -> None:
         """200 인데 JSON 이 아니면 서버 거절이 아니라 응답 형식 문제입니다."""
         # given
