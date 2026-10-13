@@ -47,6 +47,11 @@ MAX_PAGES = 20
 _DIRECT = "1"
 _TRANSFER = "2"
 
+#: 운임 조회의 환승 구분 (``chtnDvCd``). 코레일+ 7.0.8 의 ``PrcFareIn`` 생성부가 직통에 1, 환승에 2 를
+#: 넣습니다. 위의 여정 종류와 값은 같지만 다른 필드라 따로 둡니다.
+_FARE_DIRECT = "1"
+_FARE_TRANSFER = "2"
+
 
 def to_kst(moment: datetime | None) -> datetime:
     """KST 기준 시각으로 정규화합니다.
@@ -303,15 +308,19 @@ class TrainResource(Resource):
         if not isinstance(journey, (Train, Transfer)):
             # 예약(Reservation)처럼 이름이 비슷한 것을 넘기면 속성 오류로는 원인을 알기 어렵습니다.
             raise TypeError(f"Train 이나 Transfer 를 넘기세요: {type(journey).__name__}")
-        legs = journey.legs if isinstance(journey, Transfer) else (journey,)
+        if isinstance(journey, Transfer):
+            legs, kind = journey.legs, _FARE_TRANSFER
+        else:
+            legs, kind = (journey,), _FARE_DIRECT
+        # 열은 사용자가 아는 이름(Train 의 속성)으로 들고 있다가, 빈 값이 있으면 그 이름으로 알립니다.
         columns = {
-            "dptRsStnCd": [leg.dep_code for leg in legs],
-            "arvRsStnCd": [leg.arr_code for leg in legs],
-            "runDt": [leg.run_date for leg in legs],
-            "trnNo": [leg.train_no for leg in legs],
-            "rqSeatAttCd": [leg.seat_attribute for leg in legs],
-            "trnGpCd": [leg.train_group for leg in legs],
-            "stlbTrnClsfCd": [leg.train_type for leg in legs],
+            "dep_code": [leg.dep_code for leg in legs],
+            "arr_code": [leg.arr_code for leg in legs],
+            "run_date": [leg.run_date for leg in legs],
+            "train_no": [leg.train_no for leg in legs],
+            "seat_attribute": [leg.seat_attribute for leg in legs],
+            "train_group": [leg.train_group for leg in legs],
+            "train_type": [leg.train_type for leg in legs],
         }
         missing = sorted(name for name, values in columns.items() if not all(values))
         if missing:
@@ -327,16 +336,17 @@ class TrainResource(Resource):
         form = {
             **self._api.common_payload(),
             "txtMenuId": "11",
-            "chtnDvCd": str(len(legs)),
+            # 여정의 종류이지 열차 수가 아닙니다. 지금은 환승이 늘 두 구간이라 trnCnt 와 값이 같을 뿐입니다.
+            "chtnDvCd": kind,
             "trnCnt": str(len(legs)),
-            "dptRsStnCd": ",".join(columns["dptRsStnCd"]),
-            "arvRsStnCd": ",".join(columns["arvRsStnCd"]),
-            "runDt": ",".join(columns["runDt"]),
-            "trnNo": ",".join(columns["trnNo"]),
+            "dptRsStnCd": ",".join(columns["dep_code"]),
+            "arvRsStnCd": ",".join(columns["arr_code"]),
+            "runDt": ",".join(columns["run_date"]),
+            "trnNo": ",".join(columns["train_no"]),
             "gdNo": ",".join("" for _ in legs),
-            "rqSeatAttCd": ",".join(columns["rqSeatAttCd"]),
-            "trnGpCd": ",".join(columns["trnGpCd"]),
-            "stlbTrnClsfCd": ",".join(columns["stlbTrnClsfCd"]),
+            "rqSeatAttCd": ",".join(columns["seat_attribute"]),
+            "trnGpCd": ",".join(columns["train_group"]),
+            "stlbTrnClsfCd": ",".join(columns["train_type"]),
         }
 
         payload = self._api.post(url, data=form, headers=headers)

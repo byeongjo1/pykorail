@@ -227,6 +227,22 @@
       "좌석 조회의 총 인원(totPsgCnt)에 유아를 넣는지는 확인하지 못함.",
       "응답 샘플(tests/payloads.py)은 필드 이름이 APK, 값의 모양이 실서버 조회에서 온 것이고 값 자체는 예시."
     ],
+    "value_recovery": {
+      "what": "보호된 문자열 상수 가운데 십진 정수로 된 것은 평문을 읽을 수 있음.",
+      "why": "난독화 도구가 정수 리터럴 N 을 `Integer.parseInt(\"N\") 비교 k ? a : b` 꼴로 바꾼 뒤 문자열을 클래스 단위로 암호화함. 같은 클래스에서 같은 문자열은 같은 암호문 호출이 되므로, 정수 리터럴로도 쓰인 문자열 상수는 비교식에서 N 이 드러남. 비교식은 `> N-1 ? N : N-1`, `<= N+1 ? N : N+1`, `<= N-1 ? N-1 : N`, `> N+1 ? N+1 : N` 네 꼴.",
+      "validated": {
+        "comparisons": 392100,
+        "outside_the_four_forms": 0,
+        "ciphertext_length_differs_from_digits_of_n": 0,
+        "file_constant_pairs": 36350,
+        "pairs_mapped_to_more_than_one_n": 0,
+        "note": "jadx 로 푼 com.korail.talk 소스 전체. 암호문 바이트 수는 평문 바이트 수와 같음."
+      },
+      "limits": [
+        "숫자가 아닌 상수(필드 이름 아닌 문자열 값, 날짜 형식, 구분자)는 길이만 알 수 있음.",
+        "같은 클래스에 그 숫자가 정수 리터럴로 쓰이지 않으면 숫자 상수라도 읽히지 않음 (예: 쪽당 건수)."
+      ]
+    },
     "items": [
       {
         "resource": "trains.cars",
@@ -377,7 +393,8 @@
           "chtnDvCd · trnCnt": {
             "direct": "1 · 1",
             "transfer": "2 · 2",
-            "source": "APK — TrainOpInfoViewModel.initUiData 의 PrcFareIn 생성부. 보호 도구가 정수 리터럴 N 을 `Integer.parseInt(\"N\") 비교 k ? a : b` 로 바꾼 뒤 문자열을 클래스 단위로 암호화하므로, 같은 클래스에서 정수로도 쓰인 십진 문자열 상수는 비교식에서 평문이 드러남 (앱 전체 392,100 개 비교식에서 예외 0 건)."
+            "meaning": "chtnDvCd 는 환승 구분(직통 1 · 환승 2), trnCnt 는 열차 수. 앱은 열차를 둘까지만 보내므로 두 값이 늘 같음. pykorail 은 구분은 여정의 종류로, 열차 수는 구간 수로 따로 넣음 — 세 구간 요청이 통하는지는 확인된 바 없음.",
+            "source": "APK — TrainOpInfoViewModel.initUiData 의 PrcFareIn 생성부. 읽은 방법은 endpoints_added.value_recovery."
           },
           "gdNo": "앱이 null 을 넘겨 PrcFareInItem 의 기본값(빈 문자열)이 됨. 그래서 칸은 실리되 값은 빔.",
           "trnNo": "앱은 화면이 들고 있는 열차번호를 가공 없이 넘김. 조회 응답의 h_trn_no 그대로(0 을 채우지 않은 \"121\")로 실서버 성공.",

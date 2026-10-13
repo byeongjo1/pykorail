@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -994,6 +995,23 @@ class TestFares:
             "stlbTrnClsfCd": "00,02",
         }
 
+    def test_transfer_division_is_the_kind_of_journey_not_the_train_count(self, make_korail) -> None:
+        """``chtnDvCd`` 는 직통 1 · 환승 2 의 구분입니다. 구간이 셋이어도 3 이 되면 안 됩니다.
+
+        앱은 열차를 둘까지만 보내므로 세 구간 요청이 통하는지는 확인된 바 없습니다. 여기서
+        고정하는 것은 구분 코드가 열차 수를 따라가지 않는다는 것뿐입니다.
+        """
+        # given
+        client, session = make_korail(FARE_ROUTES)
+        three_legs = dataclasses.replace(FARE_TRANSFER, legs=(*FARE_TRANSFER.legs, FARE_TRANSFER.second))
+
+        # when
+        client.trains.fares(three_legs)
+
+        # then
+        data = session.kwargs_for("fare")["data"]
+        assert (data["chtnDvCd"], data["trnCnt"]) == ("2", "3")
+
     def test_is_signed_but_carries_no_sid(self, make_korail) -> None:
         # given
         client, session = make_korail(FARE_ROUTES)
@@ -1036,7 +1054,7 @@ class TestFares:
         train = client.trains.search("서울", "부산")[0]
 
         # when & then
-        with pytest.raises(ValueError, match="rqSeatAttCd"):
+        with pytest.raises(ValueError, match="seat_attribute"):
             client.trains.fares(train)
         assert API_ENDPOINTS["fare"] not in session.urls()
 
