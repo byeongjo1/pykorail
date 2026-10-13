@@ -23,7 +23,7 @@ from pykorail.constants import (
 )
 from pykorail.crypto import encrypt_password
 from pykorail.device.android_id import validate_android_id
-from pykorail.exceptions import LoginFailedError
+from pykorail.exceptions import LoginFailedError, PasswordChangeRequiredError
 from pykorail.resources import (
     MembershipResource,
     ReservationResource,
@@ -222,6 +222,9 @@ class Korail:
             LoginFailedError: 아이디/비밀번호가 비었거나,
                 암호화 키 발급이 실패했거나, 서버가 자격증명을
                 거부했습니다.
+            PasswordChangeRequiredError: 비밀번호 변경 안내에 걸려 세션이 인증되지
+                않았습니다. ``LoginFailedError`` 의 하위 타입입니다. 자격증명 문제가
+                아니므로 다시 시도하지 말고 앱이나 홈페이지에서 안내를 처리하세요.
             AccessRestrictedError: 실행 환경 검증에 걸려 이용이 제한됐습니다
                 (``code=-2000``, 상태 코드 무관). 같은 요청을 곧바로 반복하지 마세요.
             HttpStatusError: 서버가 자격증명을 보기 전에 HTTP 4xx·5xx 로 요청을
@@ -258,6 +261,13 @@ class Korail:
         }
         payload = self._api.post(url, data=data, headers=headers)
         account = self._api.account
+
+        if payload.get("h_msg_cd") in PasswordChangeRequiredError.codes:
+            # 비밀번호 변경 안내는 SUCC 와 회원번호를 달고 옵니다. 아래의 성공 조건에 그대로
+            # 걸리지만 세션은 인증되지 않아서, 성공으로 치면 이후의 모든 호출이 이유 없이
+            # P058 로 거절됩니다. 성공 여부보다 **먼저** 봐야 합니다.
+            account.clear()
+            raise PasswordChangeRequiredError(payload.get("h_msg_txt"), payload.get("h_msg_cd"))
 
         if payload.get("strResult") == "SUCC" and payload.get("strMbCrdNo"):
             # 프로필 필드는 날로 인덱싱하지 않습니다. 서버가 이름·이메일·번호 중

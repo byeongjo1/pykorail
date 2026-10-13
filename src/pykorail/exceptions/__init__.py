@@ -7,7 +7,8 @@
     │   ├── NeedToLoginError   P058
     │   ├── NoResultsError     P100, WRG000000, WRD000061, WRT300005
     │   ├── SoldOutError       IRT010110, ERR211161
-    │   └── LoginFailedError   로그인 실패 전부 (코드 매핑 없음 — 클라이언트가 직접 던짐)
+    │   └── LoginFailedError   로그인 실패 전부 (이 타입은 코드 매핑 없음 — 클라이언트가 직접 던짐)
+    │       └── PasswordChangeRequiredError  WRC000420 — 비밀번호 변경 안내에 걸림
     ├── NetFunnelError         대기열 게이트 실패
     ├── StationNotFoundError   요청 전 클라이언트 검증 실패
     ├── PastDepartureError     이미 지난 시각으로 조회
@@ -22,6 +23,7 @@ from pykorail.exceptions.api import (
     LoginFailedError,
     NeedToLoginError,
     NoResultsError,
+    PasswordChangeRequiredError,
     SoldOutError,
     error_for_code,
 )
@@ -37,6 +39,7 @@ __all__ = [
     "NeedToLoginError",
     "NetFunnelError",
     "NoResultsError",
+    "PasswordChangeRequiredError",
     "PastDepartureError",
     "PykorailError",
     "SoldOutError",

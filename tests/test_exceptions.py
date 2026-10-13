@@ -8,9 +8,11 @@ from pykorail.exceptions import (
     AccessRestrictedError,
     HttpStatusError,
     KorailError,
+    LoginFailedError,
     NeedToLoginError,
     NetFunnelError,
     NoResultsError,
+    PasswordChangeRequiredError,
     PykorailError,
     SoldOutError,
     TransportError,
@@ -30,6 +32,8 @@ class TestHierarchy:
             TransportError,
             HttpStatusError,
             AccessRestrictedError,
+            LoginFailedError,
+            PasswordChangeRequiredError,
         ],
     )
     def test_everything_is_a_pykorail_error(self, error_type: type[Exception]) -> None:
@@ -47,6 +51,14 @@ class TestHierarchy:
 
         # then
         assert not is_korail_error
+
+    def test_password_change_notice_is_still_a_login_failure(self) -> None:
+        """``login()`` 의 계약은 "실패는 전부 LoginFailedError" 입니다. 새 타입이 그 밖으로 나가면 깨집니다."""
+        # when
+        is_login_failure = issubclass(PasswordChangeRequiredError, LoginFailedError)
+
+        # then
+        assert is_login_failure
 
     def test_access_restriction_is_still_an_http_status_error(self) -> None:
         """기존 ``except HttpStatusError`` 호출부가 이용제한도 계속 잡아야 합니다."""
@@ -68,6 +80,7 @@ class TestCodeMapping:
             ("WRT300005", NoResultsError),
             ("IRT010110", SoldOutError),
             ("ERR211161", SoldOutError),
+            ("WRC000420", PasswordChangeRequiredError),
         ],
     )
     def test_known_codes_promote_to_specific_types(self, code: str, expected: type[KorailError]) -> None:

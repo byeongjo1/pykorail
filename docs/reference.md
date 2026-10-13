@@ -32,7 +32,7 @@ Korail(
 | --- | --- | --- |
 | `Korail.logged_in(id, pw, *, verbose=False, device_profile=None, validate_stations=True, android_id=None)` | `Korail` | 생성 + 로그인. ID 검증 오류는 `ValueError`, 로그인 실패는 `LoginFailedError`입니다. |
 | `android_id` | `str` | 실제 서명에 사용하는 ID. 프로파일이 없어도 저장할 수 있는 읽기 전용 속성입니다. |
-| `login(korail_id, korail_pw)` | `None` | 실패는 전부 `LoginFailedError`. 성공 여부를 반환하지 않습니다. |
+| `login(korail_id, korail_pw)` | `None` | 실패는 전부 `LoginFailedError`. 성공 여부를 반환하지 않습니다. 비밀번호 변경 안내에 걸린 계정은 그 하위 타입 [`PasswordChangeRequiredError`](#예외). |
 | `logout()` | `None` | **서버 세션만** 끊습니다. HTTP 연결은 살아 있어 재로그인할 수 있습니다. |
 | `close()` | `None` | HTTP 연결 정리. `with` 문이 자동 호출합니다. |
 | `logined` | `bool` | 로그인 상태. |
@@ -657,6 +657,7 @@ PykorailError
 │   ├── NoResultsError     P100 · WRG000000 · WRD000061 · WRT300005
 │   ├── SoldOutError       IRT010110 · ERR211161
 │   └── LoginFailedError   로그인 실패 전부 — 자격증명 누락 · 키 발급 실패 · 서버 거부
+│       └── PasswordChangeRequiredError  WRC000420 — 비밀번호 변경 안내에 걸림
 ├── NetFunnelError         대기열 게이트 실패
 ├── StationNotFoundError   요청 전 클라이언트 검증 — 역 이름이 없음
 ├── PastDepartureError     요청 전 클라이언트 검증 — 이미 지난 시각
@@ -697,6 +698,25 @@ except AccessRestrictedError as exc:
     print(exc)  # 이용제한: 원활한 서비스를 위해 ... (HTTP 403, -2000)
 except HttpStatusError as exc:
     print(exc.status_code, exc.code, exc.msg)  # 그 밖의 거절 (502 등)
+```
+
+`PasswordChangeRequiredError` 는 같은 비밀번호를 6개월 넘게 쓴 계정에서 납니다. 서버는
+이때 로그인 응답을 **성공으로** 보내지만 세션을 인증하지 않아서, 로그인된 것으로 치면 이후의
+모든 호출이 이유 없이 `NeedToLoginError` 가 됩니다. 그래서 로그인 단계에서 막습니다.
+자격증명이 틀린 것이 아니니 **다시 시도해도 같습니다** — 코레일톡 앱이나 홈페이지에서 안내를
+처리한 뒤 로그인하세요. `LoginFailedError` 의 하위 타입이라 기존 `except LoginFailedError` 도
+그대로 잡고, 서버의 안내문이 `msg` 에 실립니다.
+
+```python
+from pykorail import LoginFailedError, PasswordChangeRequiredError
+
+try:
+    korail.login(korail_id, korail_pw)
+except PasswordChangeRequiredError as exc:
+    print(exc.msg)  # 6개월 이상 동일한 비밀번호를 사용하고 있습니다. …
+    raise SystemExit("앱에서 비밀번호 변경 안내를 처리해 주세요") from exc
+except LoginFailedError:
+    ...  # 아이디 · 비밀번호가 틀림 등
 ```
 
 `PastDepartureError` 는 요청 시각(`requested`)과 판정 기준 시각(`now`)을 함께
