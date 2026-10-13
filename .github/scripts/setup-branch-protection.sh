@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
-# main 브랜치 보호 규칙(ruleset)을 적용합니다.
+# develop · main 브랜치 보호 규칙(ruleset)을 적용합니다.
 #
 #   .github/scripts/setup-branch-protection.sh
 #
 # 저장소 파일만으로는 머지를 막을 수 없습니다 — 브랜치 보호는 GitHub **저장소 설정**
 # 이라 API 로 한 번 켜 줘야 합니다. `.github/CODEOWNERS` 는 "누가 승인해야 하는가" 만
 # 정하고, "승인 없이는 못 머지" 는 이 스크립트가 만드는 ruleset 이 강제합니다.
+#
+# 두 브랜치의 역할:
+#   · develop — 작업 PR 이 모이는 곳. 규칙이 여기로 옮겨 왔습니다.
+#   · main    — 릴리스 전용. develop 을 merge 커밋으로만 머지합니다 (squash·rebase 금지).
+#
+# 주의: 머지 **권한** 은 ruleset 이 아니라 저장소 write 권한이 정합니다. 협업자는
+# @devgyurak 뿐이고, 본인 PR 은 스스로 승인할 수 없어 항상 admin 우회로 머지됩니다.
+# 그 우회는 ci-ok·strict(최신 상태) 요구까지 함께 건너뜁니다 — 즉 이 ruleset 이 실제로
+# 보장하는 것은 직접 푸시·강제 푸시·삭제 금지이고, ci-ok 는 본인이 눈으로 확인해야 합니다.
+#
+# 이 스크립트가 거는 것:
+#   · 브랜치·태그 ruleset 세 개 (develop · main · tag)
+#   · pypi environment 의 배포 제한 (v* 태그 + main) — ruleset 과 달리 저장소
+#     environment 설정이라, 손으로만 걸어 두면 저장소를 옮기거나 environment 를
+#     다시 만들 때 조용히 사라집니다.
+#
+# ruleset JSON 에 없는 required_reviewers 는 API 가 빈 배열로 채웁니다 (영향 없음).
 #
 # 필요한 것: gh CLI 로그인 + 대상 저장소 admin 권한.
 # 여러 번 실행해도 안전합니다 (있으면 갱신).
@@ -42,32 +59,83 @@ apply_ruleset() {
   fi
 }
 
+apply_ruleset "$RULESETS_DIR/develop-protection.json"
 apply_ruleset "$RULESETS_DIR/main-protection.json"
 apply_ruleset "$RULESETS_DIR/tag-protection.json"
 
+# PyPI 업로드가 거치는 environment 입니다. 태그 v* 와 main 에서만 배포를 허용합니다 —
+# main 은 workflow_dispatch 로 수동 배포할 때의 경로입니다. 정책 이름과 종류가 같은
+# 항목이 이미 있으면 다시 만들지 않습니다 (POST 는 중복을 만들 수 있습니다).
+apply_pypi_environment() {
+  echo "  'pypi' environment 배포 제한 갱신"
+
+  # PUT 은 environment 가 없으면 만듭니다. 여기서 "없으면 건너뛴다" 로 빠지면, 저장소를
+  # 옮기거나 environment 를 다시 만든 바로 그 상황에서 제한이 안 걸리고, 첫 릴리스가
+  # 무제한 pypi 를 자동 생성합니다 — 이 함수를 둔 이유가 사라집니다.
+  #
+  # deployment_branch_policy 만 보내도 기존 reviewers·wait_timer 는 유지됩니다. PUT 전후로
+  # 승인자와 타이머를 심어 대조해 확인했습니다 — 나중에 pypi 에 승인자를 걸어도 이
+  # 스크립트 재실행이 지우지 않습니다.
+  gh api --method PUT "repos/$REPO/environments/pypi" --input - >/dev/null <<'JSON'
+{"deployment_branch_policy":{"protected_branches":false,"custom_branch_policies":true}}
+JSON
+
+  local existing name type entry
+  existing="$(
+    gh api "repos/$REPO/environments/pypi/deployment-branch-policies" \
+      --jq '.branch_policies[]? | "\(.name):\(.type)"' 2>/dev/null || true
+  )"
+
+  for entry in "v*:tag" "main:branch"; do
+    name="${entry%%:*}"
+    type="${entry##*:}"
+    if printf '%s\n' "$existing" | grep -qxF "$name:$type"; then
+      echo "    $name ($type) 이미 있음"
+    else
+      gh api --method POST "repos/$REPO/environments/pypi/deployment-branch-policies" \
+        -f "name=$name" -f "type=$type" >/dev/null
+      echo "    $name ($type) 추가"
+    fi
+  done
+}
+apply_pypi_environment
+
 echo
-echo "main 브랜치:"
-echo "  · main 은 PR 로만 변경 가능 (직접 푸시 금지)"
+echo "develop 브랜치 (작업 PR 이 모이는 곳):"
+echo "  · PR 로만 변경 가능 (직접 푸시 금지)"
 echo "  · 승인 1개 이상 + CODEOWNERS(@devgyurak) 승인 필수"
 echo "  · 새 커밋이 올라오면 기존 승인 무효화"
 echo "  · 마지막 푸시한 사람 외의 승인 필요"
 echo "  · 리뷰 코멘트 전부 해결해야 머지 가능"
-echo "  · 상태 체크 'ci-ok' 통과 필수 (최신 main 기준)"
-echo "  · main 삭제·강제푸시 금지"
+echo "  · 상태 체크 'ci-ok' 통과 필수 (최신 develop 기준)"
+echo "  · develop 삭제·강제푸시 금지"
+echo
+echo "main 브랜치 (릴리스 전용):"
+echo "  · PR 로만 변경 가능 — develop 을 merge 커밋으로만 머지합니다 (squash·rebase 금지)"
+echo "  · 규칙은 develop 과 같습니다 (승인 1 + CODEOWNERS + ci-ok + 삭제·강제푸시 금지)"
+echo "  · 태그는 이 브랜치에서 밀지만, 보호는 태그 ruleset 이 따로 겁니다"
 echo
 echo "태그 (릴리스 트리거):"
 echo "  · 태그 생성·수정·삭제는 저장소 admin 만 가능"
 echo
+echo "pypi environment (PyPI 업로드):"
+echo "  · 배포는 v* 태그와 main 에서만 허용 (ruleset 이 아니라 environment 설정)"
+echo
 echo "admin 우회 범위:"
-echo "  · main 직접 push        → 막힙니다 (admin 도 예외 없음, bypass_mode=pull_request)"
-echo "  · 본인 PR 을 승인 없이 머지 → 됩니다"
-echo "  · 태그 push             → admin 만 가능 (bypass_mode=always)"
+echo "  · develop · main 직접 push → 막힙니다 (admin 도 예외 없음, bypass_mode=pull_request)"
+echo "  · 본인 PR 을 승인 없이 머지    → 됩니다 (ci-ok·strict 도 함께 건너뜁니다)"
+echo "  · 태그 push                   → admin 만 가능 (bypass_mode=always)"
+echo
+echo "  머지 권한은 ruleset 이 아니라 write 권한이 정합니다 — 이 ruleset 이 실제로"
+echo "  보장하는 것은 직접 푸시·강제 푸시·삭제 금지입니다. 본인 PR 을 admin 우회로"
+echo "  머지할 때는 ci-ok 가 초록인지 반드시 눈으로 확인하세요."
 echo
 echo "  1인 저장소에서는 자기 PR 을 스스로 승인할 수 없어, 이 우회가 없으면"
-echo "  아무것도 머지하지 못합니다. 본인 PR 도 예외 없이 막으려면"
-echo "  main-protection.json 의 bypass_actors 를 [] 로 바꾸고 다시 실행하세요."
+echo "  아무것도 머지하지 못합니다. 본인 PR 도 예외 없이 막으려면 두"
+echo "  ruleset 의 bypass_actors 를 [] 로 바꾸고 다시 실행하세요."
 echo "  반대로 긴급 상황에 직접 push 도 허용하려면 bypass_mode 를 always 로 바꾸세요."
 echo
 echo "확인:"
 echo "  gh api repos/$REPO/rulesets --jq '.[] | \"\\(.id) \\(.name) \\(.target) \\(.enforcement)\"'"
-echo "  git push origin main   # → 거부되면 정상"
+echo "  git push origin develop   # → 거부되면 정상"
+echo "  git push origin main      # → 거부되면 정상"

@@ -1,24 +1,26 @@
 name: CI
 
 # 도는 시점은 세 가지입니다.
-#   1. main 으로 가는 PR (열 때 · 커밋 추가할 때 · 다시 열 때)
-#   2. main 에 머지·직접 푸시될 때
+#   1. develop · main 으로 가는 PR (열 때 · 커밋 추가할 때 · 다시 열 때)
+#   2. develop · main 에 머지·직접 푸시될 때
 #   3. 수동 실행
+# 작업 PR 은 develop 으로, 릴리스 PR(develop → main)만 main 으로 갑니다. 두 브랜치
+# 모두의 PR 을 여기서 검증해야 어느 쪽 ruleset 이 요구하는 `ci-ok` 도 나옵니다.
 # 태그는 여기서 안 잡습니다 — 릴리스는 release.yml 이 담당합니다.
 #
 # 문서만 고쳐도 돌게 두는 것은 의도적입니다. paths-ignore 로 건너뛰면 필수 체크인
 # `ci-ok` 가 아예 생성되지 않아 PR 이 영원히 머지 대기 상태가 됩니다.
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  # PR 에 새 커밋이 오면 이전 실행을 취소합니다. 다만 main 은 취소하지 않습니다 —
-  # 연속 머지 때 중간 커밋이 한 번도 검증되지 않은 채 넘어가면 안 됩니다.
+  # PR 에 새 커밋이 오면 이전 실행을 취소합니다. 다만 develop · main 푸시는 취소하지
+  # 않습니다 — 연속 머지 때 중간 커밋이 한 번도 검증되지 않은 채 넘어가면 안 됩니다.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -246,13 +248,42 @@ jobs:
           sarif_file: trivy-results.sarif
           category: trivy
 
+  # main 으로 가는 PR 은 develop 에서만 와야 합니다. 기본 브랜치가 main 이라 GitHub UI·
+  # gh 로 PR 을 열면 작업 PR 이 main 으로 가기 쉽습니다. 여기서 막습니다.
+  # develop 으로 가는 PR 에서는 건너뜁니다 — ci-ok 의 always() 집계는 skipped 를 실패로
+  # 보지 않으므로 문제없습니다.
+  release-source:
+    name: 릴리스 PR 출처 확인
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    steps:
+      - name: 이 저장소의 develop 에서 온 PR 인지 확인
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # head_ref 는 브랜치 이름만 담습니다 — 포크에서 develop 이라는 이름의 브랜치로
+          # main 에 PR 을 열면 이름만으로는 통과합니다. 저장소까지 확인해야 합니다.
+          if [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+            echo "::error::main 으로 가는 PR 은 이 저장소($THIS_REPO)의 develop 에서만 열 수 있습니다 (fork=$HEAD_REPO, head=$HEAD_REF)."
+            exit 1
+          fi
+
+          if [ "$HEAD_REF" != "develop" ]; then
+            echo "::error::main 으로 가는 PR 은 develop 에서만 열 수 있습니다 (head=$HEAD_REF)."
+            exit 1
+          fi
+
   # 브랜치 보호(ruleset)에서 필수로 지정하는 유일한 체크입니다.
   # 이름은 상태 체크 컨텍스트로 쓰이므로 ASCII 로 고정합니다 — 바꾸면
-  # .github/rulesets/main-protection.json 도 함께 고쳐야 합니다.
+  # .github/rulesets/develop-protection.json · main-protection.json 도 함께 고쳐야 합니다.
   ci-ok:
     name: ci-ok
     runs-on: ubuntu-latest
-    needs: [lint, test, build, security]
+    needs: [lint, test, build, security, release-source]
     if: always()
     steps:
       - name: 선행 잡 결과 확인

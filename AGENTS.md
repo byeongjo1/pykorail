@@ -253,11 +253,20 @@ def test_individual_by_default(self) -> None:
 
 ## 6. CI/CD
 
+- **브랜치 모델** — 작업 PR 은 `develop` 으로, 릴리스 PR(`develop` → `main`)만
+  `main` 으로 갑니다. `main` 은 릴리스 전용이고 태그도 거기서 밉니다. 릴리스 PR 은
+  `main` 에서 **merge 커밋으로만** 머지하고(develop 이력이 main 에 닿아야 합니다),
+  태그 뒤 `main` → `develop` 역머지로 태그를 develop 에 가져옵니다.
+- **보호가 실제로 보장하는 것** — 두 브랜치 모두 ruleset 으로 직접 푸시·강제 푸시·삭제가
+  막히고 PR 로만 바뀝니다. 다만 **머지 권한은 ruleset 이 아니라 write 권한**이 정하고
+  (협업자는 @devgyurak 뿐), 본인 PR 은 스스로 승인할 수 없어 **admin 우회로 머지**되는데
+  그 우회는 `ci-ok`·strict 까지 건너뜁니다 — 머지 전에 체크가 초록인지 확인하세요
+  (`.github/rulesets/`).
 - **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.11–3.15** 테스트,
   빌드·설치 확인, Trivy 스캔. **전부 우분투에서만 돕니다** — `src/` 에 플랫폼 분기가
   없고, Windows 러너가 실제로 잡아주던 인코딩 기본값 문제는 `tests/test_style.py`
   의 `test_text_io_declares_encoding` 이 AST 로 대신합니다.
-- **CodeRabbit 리뷰** (`.coderabbit.yaml`) — main 으로 가는 PR 에 리뷰 코멘트를
+- **CodeRabbit 리뷰** (`.coderabbit.yaml`) — develop · main 으로 가는 PR 에 리뷰 코멘트를
   답니다. GitHub App 이라 워크플로가 아니고, **필수 체크가 아닙니다**
   (`request_changes_workflow: false`). 설정에 경로별 리뷰 지침이 들어 있고,
   `knowledge_base.code_guidelines` 로 이 파일과 `CONTRIBUTING.md`·스킬을 리뷰
@@ -329,7 +338,8 @@ def test_individual_by_default(self) -> None:
 (`.claude/` · `.agents/` · `.cursor/` · `.opencode/`)은 추가·수정·삭제 모두
 `DOCS:` 입니다. `.github/workflows/` 는 실행되므로 코드로 봅니다.
 
-브랜치는 `<접두사 소문자>/<요약-kebab>` (`fix/midnight-arrival`).
+브랜치는 `<접두사 소문자>/<요약-kebab>` (`fix/midnight-arrival`) 이고, `develop` 에서
+따서 `develop` 으로 PR 을 냅니다 — `main` 은 릴리스 전용입니다.
 
 경계가 헷갈리는 경우, 릴리스 노트 라벨 대응, 커밋 전 점검 목록은 **`commit`
 스킬**(`.claude/skills/commit/SKILL.md`)에 있습니다. 커밋하거나 PR 을 열기 전에

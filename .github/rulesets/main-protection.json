@@ -24,7 +24,8 @@
         "dismiss_stale_reviews_on_push": true,
         "require_last_push_approval": true,
         "required_review_thread_resolution": true,
-        "allowed_merge_methods": ["squash", "merge", "rebase"]
+        "require_extra_approval_for_unattributed_changes": true,
+        "allowed_merge_methods": ["merge"]
       }
     },
     {
