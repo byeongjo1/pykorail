@@ -20,6 +20,7 @@ from tests.payloads import (
     SEAT_INFO,
     SECOND_LEG_SEAT_INFO,
     STATION_PAYLOAD,
+    TRANSFER_RESERVATION_ENTRIES,
     TRANSFER_RESERVATION_LIST_PAYLOAD,
     TRANSFER_SEAT_DETAIL_PAYLOAD,
 )
@@ -275,6 +276,105 @@ class TestCreateTransfer:
         assert "Sid" not in kwargs["data"]
 
 
+class TestCancellingATransferReservation:
+    """기존의 고정값(순번 001 · 여정 수 01)으로는 서버가 환승 예약의 취소를 거절합니다(ERR800052)."""
+
+    @pytest.mark.parametrize("leg", [0, 1], ids=["by-the-first-leg", "by-the-second-leg"])
+    def test_cancels_the_whole_reservation_whichever_leg_is_passed(self, found, leg: int) -> None:
+        """첫 여정의 순번과 예약의 여정 수를 보내야 두 구간이 함께 취소됩니다 (실서버 확인)."""
+        # given
+        client, session, transfer = found
+        reservations = client.reservations.create_transfer(transfer)
+        session.routes["cancel"] = RESERVE_OK
+
+        # when
+        client.reservations.cancel(reservations[leg])
+
+        # then
+        data = session.kwargs_for("cancel")["data"]
+        sent = {key: data[key] for key in ("txtPnrNo", "txtJrnySqno", "txtJrnyCnt", "hidRsvChgNo")}
+        assert sent == {"txtPnrNo": "1234567890", "txtJrnySqno": "0001", "txtJrnyCnt": "0002", "hidRsvChgNo": "000"}
+
+    def test_reservations_from_the_list_cancel_the_same_way(self, make_korail) -> None:
+        """예매 직후가 아니라 나중에 목록에서 받은 예약으로도 취소돼야 합니다."""
+        # given
+        client, session = make_korail({**ROUTES, "cancel": RESERVE_OK})
+        second = client.reservations.all()[1]
+
+        # when
+        client.reservations.cancel(second)
+
+        # then
+        data = session.kwargs_for("cancel")["data"]
+        assert (data["txtJrnySqno"], data["txtJrnyCnt"], data["hidRsvChgNo"]) == ("0001", "0002", "000")
+
+    def test_found_reservation_cancels_the_same_way(self, make_korail) -> None:
+        # given
+        client, session = make_korail({**ROUTES, "cancel": RESERVE_OK})
+        reservation = client.reservations.find("1234567890")
+
+        # when
+        client.reservations.cancel(reservation)
+
+        # then
+        assert session.kwargs_for("cancel")["data"]["txtJrnyCnt"] == "0002"
+
+    def test_ordinary_reservation_still_cancels_with_the_values_it_always_sent(self, make_korail) -> None:
+        """여정이 하나인 예약은 예전부터 이 값으로 취소되고 있습니다. 건드리지 않습니다."""
+        # given
+        routes = {"myreservationview": RESERVATION_LIST_PAYLOAD, "myreservationlist": SEAT_DETAIL_PAYLOAD}
+        client, session = make_korail({**routes, "cancel": RESERVE_OK})
+        reservation = client.reservations.all()[0]
+
+        # when
+        client.reservations.cancel(reservation)
+
+        # then
+        data = session.kwargs_for("cancel")["data"]
+        assert (data["txtJrnySqno"], data["txtJrnyCnt"], data["hidRsvChgNo"]) == ("001", "01", "00000")
+
+    def test_missing_sequence_and_change_number_fall_back(self, make_korail) -> None:
+        """서버가 순번이나 변경번호를 빼고 줘도 취소 요청은 만들어져야 합니다."""
+        # given
+        bare = [
+            {k: v for k, v in leg.items() if k not in ("h_jrny_sqno", "h_rsv_chg_no")}
+            for leg in TRANSFER_RESERVATION_ENTRIES
+        ]
+        listing = {"strResult": "SUCC", "jrny_infos": {"jrny_info": [{"train_infos": {"train_info": bare}}]}}
+        client, session = make_korail({**ROUTES, "myreservationview": listing, "cancel": RESERVE_OK})
+        reservation = client.reservations.all()[0]
+
+        # when
+        client.reservations.cancel(reservation)
+
+        # then
+        data = session.kwargs_for("cancel")["data"]
+        assert (data["txtJrnySqno"], data["txtJrnyCnt"], data["hidRsvChgNo"]) == ("0001", "0002", "000")
+
+
+class TestTransferReservationAmounts:
+    def test_price_is_the_whole_reservation_on_every_leg(self, found) -> None:
+        """서버는 예약 전체의 금액을 두 항목에 똑같이 싣습니다. 더하면 두 배가 됩니다."""
+        # given
+        client, _, transfer = found
+
+        # when
+        first, second = client.reservations.create_transfer(transfer)
+
+        # then
+        assert (first.price, second.price) == (41500, 41500)
+
+    def test_per_leg_amounts_are_on_the_seats(self, found) -> None:
+        # given
+        client, _, transfer = found
+
+        # when
+        reservations = client.reservations.create_transfer(transfer)
+
+        # then
+        assert [sum(seat.price for seat in r.seats) for r in reservations] == [23700, 17800]
+
+
 class TestCreateTransferRefusesBeforeAnyRequest:
     """실제 좌석이 걸린 요청이라, 틀린 입력은 서버에 보내기 전에 막습니다."""
 
@@ -379,7 +479,7 @@ class TestSeatsFollowTheirJourney:
         # given
         detail = {
             **TRANSFER_SEAT_DETAIL_PAYLOAD,
-            "jrny_infos": {"jrny_info": [{"h_jrny_sqno": "009", "seat_infos": {"seat_info": [FIRST_LEG_SEAT_INFO]}}]},
+            "jrny_infos": {"jrny_info": [{"h_jrny_sqno": "0009", "seat_infos": {"seat_info": [FIRST_LEG_SEAT_INFO]}}]},
         }
         client, _ = make_korail({**ROUTES, "myreservationlist": detail})
 
@@ -388,6 +488,17 @@ class TestSeatsFollowTheirJourney:
 
         # then
         assert [[seat.seat for seat in r.seats] for r in reservations] == [["5A"], ["5A"]]
+
+    def test_car_number_given_as_a_number_is_read(self, make_korail) -> None:
+        """실서버는 호차 번호를 숫자로 주기도 합니다."""
+        # given
+        client, _ = make_korail(ROUTES)
+
+        # when
+        second = client.reservations.all()[1]
+
+        # then
+        assert [(seat.car, seat.seat) for seat in second.seats] == [("2", "41")]
 
     def test_public_seats_still_returns_the_first_journey(self, make_korail) -> None:
         # given

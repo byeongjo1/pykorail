@@ -65,7 +65,8 @@ class ReservationResource(Resource):
         각 예약의 좌석 상세까지 채워서 돌려주므로 예약 수만큼 추가 요청이 나갑니다.
         하나만 필요하면 :meth:`find` 를 쓰세요 — 그쪽은 2회로 끝납니다.
         """
-        return [self._complete(entry) for entry in self._entries()]
+        entries = self._entries()
+        return [self._complete(entry, entries) for entry in entries]
 
     def find(self, rsv_id: str | None) -> Reservation | None:
         """``rsv_id`` 와 일치하는 예약 하나. 없으면 ``None``.
@@ -77,8 +78,9 @@ class ReservationResource(Resource):
         """
         if not rsv_id:
             return None
-        matched = next((entry for entry in self._entries() if text(entry, "h_pnr_no") == rsv_id), None)
-        return None if matched is None else self._complete(matched)
+        entries = self._entries()
+        matched = next((entry for entry in entries if text(entry, "h_pnr_no") == rsv_id), None)
+        return None if matched is None else self._complete(matched, entries)
 
     def _entries(self) -> list[dict[str, Any]]:
         """예약 목록 응답에서 예약 항목들을 평평하게 꺼냅니다. 없으면 빈 리스트."""
@@ -94,14 +96,37 @@ class ReservationResource(Resource):
             for train_info in records(journey, "train_infos", "train_info")
         ]
 
-    def _complete(self, entry: dict[str, Any]) -> Reservation:
+    def _complete(self, entry: dict[str, Any], entries: list[dict[str, Any]]) -> Reservation:
         """예약 항목 하나에 좌석 상세를 붙여 완성합니다 (요청 1회).
 
         좌석을 나중에 주입하지 않고 여기서 미리 조회해 생성자에 넘깁니다 —
         반쯤 채워진 예약이 돌아다니면 안 됩니다 (AGENTS.md §2-3).
         """
         journeys, wct_no = self._journeys(entry.get("h_pnr_no"))
-        return Reservation.from_response(entry, seats=self._seats_of(journeys, entry), wct_no=wct_no)
+        return Reservation.from_response(
+            entry,
+            seats=self._seats_of(journeys, entry),
+            wct_no=wct_no,
+            **self._cancel_key(entry, entries),
+        )
+
+    @staticmethod
+    def _cancel_key(entry: dict[str, Any], entries: list[dict[str, Any]]) -> dict[str, str]:
+        """여정이 여럿인 예약을 취소할 때 되돌려 보낼 값. 여정이 하나면 빈 dict.
+
+        취소는 예약번호 단위라 어느 구간의 예약을 넘겨도 **첫 여정의 순번과 예약의 여정 수**를
+        보냅니다 — 그렇게 보내야 두 구간이 함께 취소됩니다(2026-10-13 실서버 확인). 여정이
+        하나인 예약은 건드리지 않습니다. 그쪽은 예전부터 쓰던 고정값으로 취소되고 있습니다.
+        """
+        siblings = [other for other in entries if text(other, "h_pnr_no") == text(entry, "h_pnr_no")]
+        if len(siblings) < _TRANSFER_LEGS:
+            return {}
+        first = siblings[0]
+        return {
+            "journey_no": text(first, "h_jrny_sqno") or "0001",
+            "journey_cnt": f"{len(siblings):04d}",
+            "rsv_chg_no": text(first, "h_rsv_chg_no") or "000",
+        }
 
     def seats(self, rsv_id: str | None = None) -> tuple[list[Seat], str | None]:
         """예약의 좌석 상세와 발매창구 번호(``wct_no``).
@@ -311,7 +336,9 @@ class ReservationResource(Resource):
 
         Returns:
             타는 순서대로 **구간마다 하나씩**의 예약. 둘은 예약번호(``rsv_id``)가 같고,
-            각자 그 구간의 열차와 좌석을 가집니다.
+            각자 그 구간의 열차와 좌석을 가집니다. :meth:`cancel` 에는 둘 중 어느 것을
+            넘겨도 **예약 전체**가 취소됩니다. ``price`` 는 구간의 금액이 아니라 예약
+            전체의 금액이라 둘을 더하면 안 됩니다.
 
         Raises:
             TypeError: 환승 여정이 아닌 것을 넘겼습니다.
@@ -367,7 +394,13 @@ class ReservationResource(Resource):
         # 구간마다 좌석 상세를 따로 조회하지 않고 한 번 받아 여정 번호로 나눕니다.
         journeys, wct_no = self._journeys(rsv_id)
         return [
-            Reservation.from_response(entry, seats=self._seats_of(journeys, entry), wct_no=wct_no) for entry in entries
+            Reservation.from_response(
+                entry,
+                seats=self._seats_of(journeys, entry),
+                wct_no=wct_no,
+                **self._cancel_key(entry, entries),
+            )
+            for entry in entries
         ]
 
     @staticmethod
@@ -507,6 +540,9 @@ class ReservationResource(Resource):
 
     def cancel(self, reservation: Reservation) -> None:
         """예약을 취소합니다.
+
+        취소는 예약번호 단위입니다. 환승 예약은 어느 구간의 예약을 넘겨도 두 구간이 함께
+        취소됩니다.
 
         Raises:
             KorailError: 서버가 취소를 거부했습니다.

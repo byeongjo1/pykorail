@@ -230,7 +230,7 @@
       "할인쿠폰은 쿠폰이 없는 계정의 응답만 실서버로 확인함. 쿠폰이 실린 응답의 값 모양은 확인하지 못함.",
       "좌석 지정 예매는 어른만 · 같은 호차 · 일반실로 실서버에서 확인함 (좌석 하나와 좌석 둘, 예약 뒤 즉시 취소). 특실 · 다른 승객 종류 · 서로 다른 호차는 확인하지 않음.",
       "공항버스 시간표 조회는 앱이 싣는 rsvSaleDvCd(한 글자, 평문 미상) 없이 보냄. 그 모양으로 실서버 성공을 확인했으나 앱의 요청과 한 칸이 다름.",
-      "환승 예매(create_transfer)는 pykorail 로 실서버에서 예약 → 취소를 해 보지 않음. 예약번호 하나에 여정이 둘인 예약이 목록 · 상세 · 취소에서 어떻게 보이는지도 실서버로 확인하지 않음."
+      "환승 예매는 어른 1명 · 일반실 · KTX 계열 두 구간으로 실서버에서 확인함 (예약 뒤 취소). 취소는 고친 cancel() 과 같은 모양의 요청으로 확인했고, 결제는 확인하지 않음."
     ],
     "value_recovery": {
       "what": "보호된 문자열 상수 가운데 십진 정수로 된 것은 평문을 읽을 수 있음.",
@@ -766,12 +766,13 @@
           "not_sent": "좌석 지정 칸(txtSrcarCnt · txtSrcarNo · txtSeatNo)은 싣지 않음 — 좌석은 서버가 정함."
         },
         "after_reserve": {
-          "list": "예약 목록(ReservationViewOutTrainInfo)의 항목이 h_pnr_no 와 h_jrny_sqno 를 가짐. 같은 예약번호의 항목을 구간으로 봄.",
-          "detail": "예약 상세(ReservationOutJrnyInfo)의 여정도 h_jrny_sqno 를 가짐. 목록 항목과 여정 번호로 맞춰 구간별 좌석을 나눔. 번호가 없거나 맞는 여정이 없으면 첫 여정."
+          "list": "예약 목록의 jrny_info 하나 안에 train_info 가 구간마다 하나씩. 항목이 h_pnr_no · h_jrny_sqno · h_jrny_tp_cd · h_rsv_amt · h_rsv_chg_no 를 가짐. 같은 예약번호의 항목을 구간으로 봄.",
+          "detail": "예약 상세의 jrny_info 가 구간마다 하나씩이고 목록과 같은 h_jrny_sqno 를 가짐. 여정 번호로 맞춰 구간별 좌석을 나눔. 번호가 없거나 맞는 여정이 없으면 첫 여정.",
+          "cancel": "txtJrnySqno = 첫 여정의 h_jrny_sqno, txtJrnyCnt = 예약의 여정 수(네 자리), hidRsvChgNo = 첫 여정의 h_rsv_chg_no. 앱도 응답의 여정 수를 그대로 되돌려 보냄. 여정이 하나인 예약은 기존 고정값(001 · 01 · 00000) 그대로."
         },
         "signed": true,
         "login_required": true,
-        "verification": "pykorail 로 실서버에 보낸 요청은 없음 — 호출하면 실제 좌석 둘이 잡히므로 계정 소유자의 승인 없이 확인하지 않음. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_transfer, SUCC/IRR000018 — 예약 뒤 취소까지 확인된 기록)과 같음. 예약 뒤의 목록 · 상세 응답이 여정 번호를 어떤 모양으로 싣는지는 모델 선언으로만 확인함."
+        "verification": "2026-10-13 실서버에서 확인 (transfer_reservation_live_validation). pykorail 의 요청 그대로 두 구간이 예약번호 하나로 예약됨(SUCC/IRR000018). 예약 뒤의 목록 · 상세 응답이 여정 번호를 같은 값으로 실어 구간별 좌석이 맞게 나뉨. 취소는 기존 cancel() 의 고정값으로는 거절됐고(ERR800052), 서버가 준 여정 값을 되돌려 보내니 두 구간이 함께 취소됨 — cancel() 을 그렇게 고침. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_transfer)과도 같음."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -1213,6 +1214,80 @@
         },
         "conclusion": "코레일이 파는 것은 광명역에서 떠나는 편뿐. 소요 시간이 앱의 문구와 일치하고, 반대 방향은 앱이 조회 자체를 만들지 못하므로 빠진 필드의 영향이 아님. 빈 리스트가 사실."
       }
+    },
+    "transfer_reservation_live_validation": {
+      "observed_at_kst": "2026-10-13",
+      "scope": "사용자가 이 건에 한해 승인한 본인 계정의 예약 → 즉시 취소. 로그인 → 예약 목록 → 환승 조회 → 환승 예매(어른 1) → 예약 목록 · 상세 → 취소 → 예약 목록 → 로그아웃. 결제 없음. 계정 · 예약번호는 기록하지 않음.",
+      "itinerary": {
+        "route": [
+          "강릉",
+          "서울",
+          "목포"
+        ],
+        "legs": [
+          {
+            "type": "KTX-이음",
+            "h_trn_no": "820",
+            "h_trn_clsf_cd": "16",
+            "cons": "000063 → 000016",
+            "run": "000001 → 000008",
+            "h_seat_att_cd": "015"
+          },
+          {
+            "type": "KTX-산천",
+            "h_trn_no": "437",
+            "h_trn_clsf_cd": "10",
+            "cons": "000008 → 000035",
+            "run": "000001 → 000010",
+            "h_seat_att_cd": "015"
+          }
+        ]
+      },
+      "reserve": {
+        "request": "POST, 폼 본문, 필드 51개. 헤더는 x-dynapath-m-token 만, Sid 없음.",
+        "sent": {
+          "txtJobId": "1101",
+          "txtStndFlg": "N",
+          "txtTotPsgCnt": "1",
+          "txtSeatAttCd4 · txtSeatAttCd4_1": "015 · 015",
+          "txtJrnyCnt": "2",
+          "txtJrnyTpCd1 · txtJrnyTpCd2": "14 · 14",
+          "txtJrnySqno1 · txtJrnySqno2": "001 · 002",
+          "txtTrnNo1 · txtTrnNo2": "820 · 437",
+          "txtChgFlg1 · txtChgFlg2": "N · N",
+          "txtPsrmClCd1 · txtPsrmClCd2": "1 · 1"
+        },
+        "result": "strResult=SUCC, h_msg_cd=IRR000018. 응답의 h_jrny_cnt=0002."
+      },
+      "after_reserve": {
+        "list": "jrny_info 1개 안에 train_info 2개. 최상위 h_jrny_cnt=2.",
+        "list_entry_shapes": {
+          "h_jrny_sqno": "0001 · 0002 (네 자리)",
+          "h_jrny_tp_cd": "14 · 14",
+          "h_rsv_amt": "두 항목이 **같은 값** — 구간의 금액이 아니라 예약 전체의 금액. 0 을 채운 열한 자리.",
+          "h_tot_seat_cnt": "00001 · 00001",
+          "h_rsv_chg_no": "000 · 000",
+          "h_pnr_cnt": "첫 항목 00000000002, 둘째 항목 00000000000"
+        },
+        "detail": "h_jrny_cnt=2, jrny_info 2개. 각 여정의 h_jrny_sqno 가 목록과 같은 0001 · 0002. 좌석은 구간마다 하나씩 다른 호차 · 좌석. h_srcar_no 가 문자열이 아니라 숫자로 옴.",
+        "pykorail": "create_transfer 가 예약 둘을 돌려줌 — 예약번호 같음, 구간별 열차와 좌석이 맞게 나뉨."
+      },
+      "cancel": {
+        "first_attempt": "기존 cancel() 이 보내던 고정값 txtJrnySqno=001 · txtJrnyCnt=01 · hidRsvChgNo=00000 → FAIL/ERR800052 '예약내역을 확인하신 후 다시 시도해 주시기 바랍니다.' 두 구간 어느 쪽 예약으로 보내도 같았음. **예약이 남음.**",
+        "second_attempt": "txtJrnySqno=0001 · txtJrnyCnt=0002 · hidRsvChgNo=000 (목록이 준 값과 여정 수) → SUCC/IRG000000. 두 구간이 함께 취소되고 예약 목록은 0건.",
+        "note": "첫 시도의 실패로 예약이 잠시 남았고, 원인을 찾아 직접 요청으로 취소함. 그 요청은 고친 cancel() 이 보내는 것과 같은 모양(base_payload + 네 필드)."
+      },
+      "code_changes": [
+        "여정이 여럿인 예약의 취소 값을 서버가 준 값으로 — Reservation 의 journey_no · journey_cnt · rsv_chg_no 를 리소스가 채움. 여정이 하나인 예약은 그대로.",
+        "tests/payloads.py 의 환승 예약 샘플을 실서버에서 본 모양으로 (네 자리 여정 번호, 두 항목에 같은 금액, 숫자로 오는 호차 번호).",
+        "문서에 환승 예약의 price 가 예약 전체의 금액이라는 것과 취소가 예약 전체라는 것을 적음."
+      ],
+      "not_covered": [
+        "고친 cancel() 을 그대로 써서 환승 예약을 취소해 보지는 않음 — 같은 모양의 요청으로 취소가 된 것까지 확인. 테스트가 그 모양을 고정함.",
+        "승객이 둘 이상인 환승 예매, 특실.",
+        "한 구간이 매진일 때의 거절 응답.",
+        "환승 예약의 결제."
+      ]
     }
   },
   "login_password_change_gate": {
