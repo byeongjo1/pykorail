@@ -491,7 +491,7 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `wait_reserve_flag` | `int` | `9` = 예약대기 가능, `-1` = 미적용 |
 | `dep_run_order` · `arr_run_order` | `str` | 출발 · 도착역의 운행 순서. 호차 · 좌석 조회가 구간을 이 값으로 가리킵니다 |
 | `dep_cons_order` · `arr_cons_order` | `str` | 출발 · 도착역의 구성 순서. 좌석을 지정한 예매가 운행 순서와 함께 돌려보냅니다 |
-| `seat_attribute` | `str` | 이 열차 행의 좌석 속성 코드. 호차 · 좌석 조회에 그대로 돌려보냅니다 |
+| `seat_attribute` | `str` | 이 열차 행의 좌석 속성 코드. 운임 · 호차 · 좌석 조회와 좌석 지정 · 환승 예매가 이 값을 보냅니다 — 예매는 비면 일반석 `015` 로 대체합니다 |
 
 | 메서드 · 속성 | 반환 | 설명 |
 | --- | --- | --- |
@@ -835,7 +835,8 @@ except HttpStatusError as exc:
 
 `PasswordChangeRequiredError` 는 같은 비밀번호를 6개월 넘게 쓴 계정에서 납니다. 서버는
 이때 로그인 응답을 **성공으로** 보내지만 세션을 인증하지 않아서, 로그인된 것으로 치면 이후의
-모든 호출이 이유 없이 `NeedToLoginError` 가 됩니다. 그래서 로그인 단계에서 막습니다.
+**로그인이 필요한 호출**이 이유 없이 `NeedToLoginError` 가 됩니다 — 같은 세션에서 열차 조회는
+그대로 됐습니다. 그래서 로그인 단계에서 막습니다.
 자격증명이 틀린 것이 아니니 **다시 시도해도 같습니다** — 코레일톡 앱이나 홈페이지에서 안내를
 처리한 뒤 로그인하세요. `LoginFailedError` 의 하위 타입이라 기존 `except LoginFailedError` 도
 그대로 잡고, 서버의 안내문이 `msg` 에 실립니다.

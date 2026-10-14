@@ -8,9 +8,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pykorail.models.parsing import hhmm, integer, mmdd, text
+
+if TYPE_CHECKING:
+    from typing import Self
 
 #: ``h_wait_rsv_flg`` 가 없을 때 쓰는 값. "예약대기라는 개념이 적용되지 않는 열차"를
 #: 뜻하며, 앱의 음수 관례를 그대로 따릅니다.
@@ -86,7 +89,7 @@ class Schedule:
         }
 
     @classmethod
-    def from_response(cls, data: dict[str, Any]) -> Any:
+    def from_response(cls, data: dict[str, Any]) -> Self:
         return cls(**cls._fields_from(data))
 
     @property
@@ -134,7 +137,8 @@ class Train(Schedule):
     #: 출발·도착역의 구성 순서. 좌석을 지정한 예매가 운행 순서와 함께 돌려보냅니다.
     dep_cons_order: str
     arr_cons_order: str
-    #: 이 열차 행의 좌석 속성 코드 (``"015"`` 등). 호차·좌석 조회에 그대로 돌려보냅니다.
+    #: 이 열차 행의 좌석 속성 코드 (``"015"`` 등). 운임 · 호차 · 좌석 조회와 좌석 지정 · 환승 예매가
+    #: 이 값을 보냅니다 — 예매는 비면 일반석 015 로 대체합니다.
     seat_attribute: str
 
     @classmethod
@@ -154,10 +158,6 @@ class Train(Schedule):
             # 비교 연산(`< 0`)이 터집니다.
             "wait_reserve_flag": integer(data, "h_wait_rsv_flg", WAITING_NOT_APPLICABLE),
         }
-
-    @classmethod
-    def from_response(cls, data: dict[str, Any]) -> Train:
-        return cls(**cls._fields_from(data))
 
     def has_special_seat(self) -> bool:
         return self.special_seat == _SEAT_AVAILABLE

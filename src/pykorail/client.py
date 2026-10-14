@@ -36,6 +36,7 @@ from pykorail.transport import create_session
 
 if TYPE_CHECKING:
     from types import TracebackType
+    from typing import Self
 
     from pykorail.device import DeviceProfileLike
 
@@ -114,7 +115,7 @@ class Korail:
         device_profile: DeviceProfileLike | None = None,
         validate_stations: bool = True,
         android_id: str | None = None,
-    ) -> Korail:
+    ) -> Self:
         """클라이언트를 만들고 곧바로 로그인합니다.
 
         실패하면 연결을 닫고 예외를 다시 올립니다 — 로그인 못 한 클라이언트가
@@ -169,7 +170,7 @@ class Korail:
         return self._api.account.phone_number
 
     # ------------------------------------------------------------- 컨텍스트 관리
-    def __enter__(self) -> Korail:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(
@@ -267,8 +268,9 @@ class Korail:
 
         if payload.get("h_msg_cd") in PasswordChangeRequiredError.codes:
             # 비밀번호 변경 안내는 SUCC 와 회원번호를 달고 옵니다. 아래의 성공 조건에 그대로
-            # 걸리지만 세션은 인증되지 않아서, 성공으로 치면 이후의 모든 호출이 이유 없이
-            # P058 로 거절됩니다. 성공 여부보다 **먼저** 봐야 합니다.
+            # 걸리지만 세션은 인증되지 않아서, 성공으로 치면 이후의 인증이 필요한 호출이 이유
+            # 없이 P058 로 거절됩니다(열차 조회는 그대로입니다). 성공 여부보다 **먼저** 봐야
+            # 합니다.
             account.clear()
             raise PasswordChangeRequiredError(payload.get("h_msg_txt"), payload.get("h_msg_cd"))
 

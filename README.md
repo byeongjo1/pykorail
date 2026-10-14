@@ -10,7 +10,7 @@
 [![CI](https://github.com/devgyurak/pykorail/actions/workflows/ci.yml/badge.svg)](https://github.com/devgyurak/pykorail/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/pykorail?color=3775A9&logo=pypi&logoColor=white&cacheSeconds=10800)](https://pypi.org/project/pykorail/)
 [![Python](https://img.shields.io/pypi/pyversions/pykorail?color=3776AB&logo=python&logoColor=white&cacheSeconds=10800)](https://pypi.org/project/pykorail/)
-[![License](https://img.shields.io/pypi/l/pykorail?color=green&cacheSeconds=10800)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT%20%EA%B8%B0%EB%B0%98%20%C2%B7%20%EC%83%81%EC%97%85%EC%A0%81%20%EC%9D%B4%EB%93%9D%20%EA%B8%88%EC%A7%80-orange)](LICENSE)
 
 [문서 사이트](https://pykorail.devgyurak.com) · [빠른 시작](#빠른-시작) · [할 수 있는 것](#할-수-있는-것) · [API 레퍼런스](docs/reference.md) · [기여하기](CONTRIBUTING.md)
 
@@ -44,7 +44,11 @@ with Korail.logged_in("me@example.com", "password") as korail:
 [KTX 105]  04/01 11:00~14:35  서울~부산  특실 가능, 일반실 매진 (3시간 35분)
 ```
 
-> [!WARNING]
+> [!CAUTION]
+> **승차권 재판매 목적으로 쓰지 마세요.** pykorail 은 본인이 탈 표를 예매하기 위한
+> 도구입니다. 승차권을 웃돈을 받고 상습적으로 되파는 행위는 철도사업법으로 금지되어 있고,
+> 상업적 이득을 얻는 데 쓰는 것은 [라이선스](#라이선스)로도 금지됩니다.
+>
 > 코레일과 아무 관련 없는 **비공식** 라이브러리입니다. 문서화되지 않은 앱 API 를 쓰기
 > 때문에 코레일이 앱을 바꾸면 예고 없이 멈출 수 있습니다. 이용 약관과 관련 법령을
 > 지키는 것은 사용자 책임이며, 과도한 자동 요청은 계정 제재로 이어질 수 있습니다.
@@ -74,30 +78,6 @@ korail.reservations.pay(
     Card(number="1234567812345678", password="12", verify_number="900101", expire="2812"),
 )
 ```
-
-<details>
-<summary><b>취소표 기다리기</b></summary>
-
-```python
-import time
-from pykorail import NoResultsError, PastDepartureError
-
-departure = (datetime.now(kst) + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
-
-while True:
-    try:
-        trains = korail.trains.search("서울", "부산", depart_after=departure)
-    except NoResultsError:
-        time.sleep(30)  # 서버에 부담 주지 않게 넉넉히 쉬세요
-        continue
-    except PastDepartureError:
-        break  # 열차가 이미 떠났습니다 — 무한정 돌지 않도록
-
-    korail.reservations.create(trains[0])
-    break
-```
-
-</details>
 
 <details>
 <summary><b>뒤쪽 열차까지 이어서 보기</b></summary>
@@ -287,13 +267,6 @@ except KorailError as exc:
 </details>
 
 <details>
-<summary><b>SRT 도 되나요?</b></summary>
-
-아니요. SRT(수서고속철도)는 다른 회사의 다른 시스템입니다.
-
-</details>
-
-<details>
 <summary><b>어제까지 되던 게 오늘 안 됩니다</b></summary>
 
 코레일이 서버를 바꿨을 수 있습니다.
@@ -307,6 +280,14 @@ except KorailError as exc:
 
 이 라이브러리는 앱과 같은 요청을 보낼 뿐이고, 좌석 배정은 코레일 서버가 합니다.
 명절 예매처럼 경쟁이 심한 상황에서 성공을 보장하지 않습니다.
+
+</details>
+
+<details>
+<summary><b>프록시를 넣을 계획은 없나요?</b></summary>
+
+없고, 앞으로도 넣지 않습니다. 프록시로 출처를 바꿔 가며 요청하는 것은 코레일 서버를
+속여 정상 이용자보다 유리하게 예매하려는 부정한 방법입니다.
 
 </details>
 
@@ -339,9 +320,24 @@ git tag v0.2.0 && git push origin v0.2.0
 
 ---
 
+## 라이선스
+
+MIT 에 **상업적 이득 금지** 조항을 더한 자체 라이선스입니다. 그래서 MIT 도, OSI 기준의
+오픈소스도 아닙니다.
+
+- **금지** — 이 패키지로 확보한 승차권 · 예약을 산 값보다 비싸게 되파는 것, 수수료 · 구독료 ·
+  광고 수익을 받는 예매 · 예약대기 · 표 확보 서비스, 이 패키지에 전부 또는 상당 부분 기대는
+  상품 · 서비스를 파는 것
+- **허용** — 본인의 여행, 다른 사람의 표를 수수료 없이 정가로 대신 예매하는 것, 단체가 소속원의
+  여행에 쓰는 것, 연구 · 교육 · 비영리 개인 프로젝트
+
+이 요약은 참고용이고 영문 [LICENSE](LICENSE) 가 우선합니다. 0.3.0 까지의 배포본은 MIT 그대로입니다.
+
+---
+
 <div align="center">
 
-<sub>MIT License · 코레일과 무관한 비공식 프로젝트</sub>
+<sub>MIT 기반 자체 라이선스 · 상업적 이득 금지 · 코레일과 무관한 비공식 프로젝트</sub>
 
 </div>
 

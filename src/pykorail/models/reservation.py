@@ -9,10 +9,20 @@ from pykorail.models.parsing import hhmm, integer, text
 from pykorail.models.schedule import Train
 
 if TYPE_CHECKING:
+    from typing import Self
+
     from pykorail.models.seat import Seat
 
 _WAITING_BUY_LIMIT_DATE = "00000000"
 _WAITING_BUY_LIMIT_TIME = "235959"
+
+#: 여정이 하나인 보통 예약의 취소 요청에 실리는 고정 식별자. 응답에는 이 이름들이 오지
+#: 않습니다 — ``txtJrnySqno`` · ``txtJrnyCnt`` · ``hidRsvChgNo`` 는 **요청 폼** 필드 이름이라,
+#: 예전에 응답에서 읽던 값은 늘 이 기본값이었습니다. 여정이 여럿인 환승 예약은 리소스가
+#: 서버가 준 값으로 덮어씁니다(고정값으로는 서버가 취소를 거절합니다).
+_SINGLE_JOURNEY_NO = "001"
+_SINGLE_JOURNEY_CNT = "01"
+_SINGLE_JOURNEY_CHG_NO = "00000"
 
 
 @dataclass(frozen=True)
@@ -57,7 +67,7 @@ class Reservation:
         journey_no: str | None = None,
         journey_cnt: str | None = None,
         rsv_chg_no: str | None = None,
-    ) -> Reservation:
+    ) -> Self:
         # 예약 응답에는 출발·도착일이 따로 오지 않고 운행일 하나만 옵니다.
         train = Train.from_response(data)
         train = replace(train, dep_date=train.run_date, arr_date=train.run_date)
@@ -69,9 +79,9 @@ class Reservation:
             buy_limit_date=text(data, "h_ntisu_lmt_dt"),
             buy_limit_time=text(data, "h_ntisu_lmt_tm"),
             price=integer(data, "h_rsv_amt"),
-            journey_no=journey_no or text(data, "txtJrnySqno", "001"),
-            journey_cnt=journey_cnt or text(data, "txtJrnyCnt", "01"),
-            rsv_chg_no=rsv_chg_no or text(data, "hidRsvChgNo", "00000"),
+            journey_no=journey_no or _SINGLE_JOURNEY_NO,
+            journey_cnt=journey_cnt or _SINGLE_JOURNEY_CNT,
+            rsv_chg_no=rsv_chg_no or _SINGLE_JOURNEY_CHG_NO,
             seats=seats,
             wct_no=wct_no,
         )

@@ -263,9 +263,16 @@ def test_individual_by_default(self) -> None:
   그 우회는 `ci-ok`·strict 까지 건너뜁니다 — 머지 전에 체크가 초록인지 확인하세요
   (`.github/rulesets/`).
 - **CI** (`.github/workflows/ci.yml`) — 린트·타입 검사, Python **3.11–3.15** 테스트,
-  빌드·설치 확인, Trivy 스캔. **전부 우분투에서만 돕니다** — `src/` 에 플랫폼 분기가
-  없고, Windows 러너가 실제로 잡아주던 인코딩 기본값 문제는 `tests/test_style.py`
-  의 `test_text_io_declares_encoding` 이 AST 로 대신합니다.
+  하한 의존성(`lowest`, 3.11) 테스트, 빌드·설치 확인, Trivy 스캔.
+  **전부 우분투에서만 돕니다** — `src/` 에 플랫폼 분기가 없고, Windows 러너가 실제로
+  잡아주던 인코딩 기본값 문제는 `tests/test_style.py` 의 `test_text_io_declares_encoding`
+  이 AST 로 대신합니다.
+- **이슈 자동 닫기** (`.github/workflows/close-issues.yml`) — `develop` 에 머지된 PR 의
+  본문에서 닫기 키워드(`Closes #12` 등)를 읽어 가리킨 이슈를 대신 닫습니다. GitHub 은
+  기본 브랜치로 가는 PR 에서만 키워드를 읽어서 develop 머지로는 닫히지 않기 때문입니다
+  (CONTRIBUTING.md "머지" 절). `pull_request` 는 포크·Dependabot PR 의 토큰이 읽기
+  전용이고 `pull_request_target` 은 기본 브랜치(main)의 파일을 실행하므로(2025-12-08),
+  보호된 develop 의 **push** 를 받아 그 커밋에 연결된 PR 을 찾습니다.
 - **CodeRabbit 리뷰** (`.coderabbit.yaml`) — develop · main 으로 가는 PR 에 리뷰 코멘트를
   답니다. GitHub App 이라 워크플로가 아니고, **필수 체크가 아닙니다**
   (`request_changes_workflow: false`). 설정에 경로별 리뷰 지침이 들어 있고,
@@ -314,6 +321,11 @@ def test_individual_by_default(self) -> None:
   `versioning-strategy: increase-if-necessary` 로 고정해 뒀습니다 — 평소에는
   `uv.lock` 만 움직이고 `pyproject.toml` 의 `>=` 는 그대로입니다. 하한을 올리는
   것은 사용자 환경을 좁히는 결정이라 근거(실제 필요한 최소 버전)가 있을 때만.
+  **하한은 이제 `lowest` 잡이 실제로 검증합니다** — 3.11 에서
+  `--resolution lowest-direct` 로 깔아 테스트하므로, 선언한 하한이 코드가 요구하는
+  최소보다 낮으면 거기서 빨개집니다 (`curl-cffi>=0.7.0` 인데 0.10.0 의
+  `curl_cffi.Session` 을 쓰던 문제가 그렇게 새 나갔습니다). 주의: `uv run` 은
+  해석 모드를 기본값으로 되돌리므로 잡은 `UV_RESOLUTION` 으로 모드를 고정합니다.
 - 커버리지 게이트를 CI 에서만 끄는 식의 우회를 만들지 마세요.
 
 ---
