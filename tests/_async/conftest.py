@@ -8,7 +8,8 @@ from typing import Any
 
 import pytest
 
-from pykorail.client import Korail
+from pykorail._async import client as client_module
+from pykorail._async.client import AsyncKorail
 from pykorail.constants import API_ENDPOINTS
 from tests.payloads import (
     FARE_PAYLOAD,
@@ -55,14 +56,14 @@ class Replies:
         return payload
 
 
-class FakeResponse:
+class AsyncFakeResponse:
     def __init__(self, payload: Any) -> None:
         reply = payload if isinstance(payload, Reply) else Reply(200, payload)
         self.status_code = reply.status_code
         self.text = reply.body if isinstance(reply.body, str) else json.dumps(reply.body)
 
 
-class FakeSession:
+class AsyncFakeSession:
     """호출을 기록하고 엔드포인트별로 미리 정해 둔 응답을 돌려줍니다."""
 
     def __init__(self, routes: dict[str, Any]) -> None:
@@ -71,20 +72,24 @@ class FakeSession:
         self.calls: list[tuple[str, str, dict[str, Any]]] = []
         self.closed = False
 
-    def _respond(self, method: str, url: str, kwargs: dict[str, Any]) -> FakeResponse:
+    def _respond(self, method: str, url: str, kwargs: dict[str, Any]) -> AsyncFakeResponse:
         self.calls.append((method, url, kwargs))
         for endpoint, payload in self.routes.items():
             if url == API_ENDPOINTS[endpoint]:
-                return FakeResponse(payload.take() if isinstance(payload, Replies) else payload)
+                return AsyncFakeResponse(payload.take() if isinstance(payload, Replies) else payload)
         raise AssertionError(f"예상하지 못한 요청: {url}")
 
-    def get(self, url: str, **kwargs: Any) -> FakeResponse:
+    async def get(self, url: str, **kwargs: Any) -> AsyncFakeResponse:
         return self._respond("GET", url, kwargs)
 
-    def post(self, url: str, **kwargs: Any) -> FakeResponse:
+    async def post(self, url: str, **kwargs: Any) -> AsyncFakeResponse:
         return self._respond("POST", url, kwargs)
 
-    def close(self) -> None:
+    async def close(self) -> None:
+        # 실제 curl_cffi 세션은 두 번째 close() 에서 TypeError 를 냅니다. 가짜도 똑같이 굴어
+        # 이중 close 보호가 실제로 일하는지 테스트가 잡을 수 있게 합니다.
+        if self.closed:
+            raise TypeError("세션을 두 번 닫았습니다")
         self.closed = True
 
     # ------------------------------------------------------------------ 헬퍼
@@ -110,16 +115,16 @@ class FakeSession:
 def make_korail(monkeypatch: pytest.MonkeyPatch):
     """지정한 라우트를 갖는 클라이언트와 그 가짜 세션을 만듭니다."""
 
-    def factory(routes: dict[str, Any], **kwargs: Any) -> tuple[Korail, FakeSession]:
-        session = FakeSession(routes)
-        monkeypatch.setattr("pykorail.client.create_session", lambda headers: session)
-        return Korail(**kwargs), session
+    def factory(routes: dict[str, Any], **kwargs: Any) -> tuple[AsyncKorail, AsyncFakeSession]:
+        session = AsyncFakeSession(routes)
+        monkeypatch.setattr(client_module, "create_async_session", lambda headers: session)
+        return AsyncKorail(**kwargs), session
 
     return factory
 
 
 @pytest.fixture
-def korail(make_korail) -> tuple[Korail, FakeSession]:
+def korail(make_korail) -> tuple[AsyncKorail, AsyncFakeSession]:
     """대부분의 엔드포인트가 성공 응답을 주는 기본 클라이언트."""
     return make_korail(
         {
