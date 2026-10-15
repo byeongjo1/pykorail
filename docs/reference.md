@@ -986,3 +986,21 @@ from pykorail import NetFunnelHelper
 
 key = NetFunnelHelper().run()  # 통과할 때까지 블로킹
 ```
+
+비동기 코드에서는 `AsyncNetFunnelHelper` 를 `await` 합니다. 리소스와 달리
+`AsyncKorail` 에 엮여 있지 않은 것은 동기판과 같습니다.
+
+```python
+from pykorail import AsyncNetFunnelHelper
+
+key = await AsyncNetFunnelHelper().run()
+```
+
+제약:
+
+- `AsyncNetFunnelHelper` 는 asyncio 전용이고 `curl_cffi` 가 필요합니다 — 동기판에는
+  requests 폴백이 있지만 비동기판에는 없습니다.
+- 한 인스턴스를 여러 코루틴이 동시에 쓰면 `run()` 이 각자 게이트를 통과합니다. 캐시는
+  **통과를 마친** 티켓만 공유하므로, 대기 중에 끼어든 호출이 미완성 티켓을 빌려 오는
+  일은 없습니다. 대신 그만큼 대기열을 여러 번 때립니다.
+- 동기·비동기 모두 연 HTTP 세션을 닫는 `close()` 를 제공하지 않습니다.
