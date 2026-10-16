@@ -2,7 +2,7 @@
 
 응답 모델(:class:`Schedule`·:class:`Train`·:class:`Ticket`·:class:`Reservation`·
 :class:`Seat`·:class:`Station`·:class:`Car`·:class:`CarSeat`·:class:`Mileage`·
-:class:`Coupon`)은 모두 **불변 데이터클래스**이고 ``from_response``
+:class:`Coupon`·:class:`RunDate`)은 모두 **불변 데이터클래스**이고 ``from_response``
 클래스메서드로만 만듭니다. 생성자는 값 조립, 응답 해석은 ``from_response`` 로
 일관되게 갈라져 있습니다.
 
@@ -23,12 +23,14 @@ from pykorail.models.passenger import (
     ChildPassenger,
     Disability1To3Passenger,
     Disability4To6Passenger,
+    GuideDogPassenger,
     Passenger,
     SeniorPassenger,
     ToddlerPassenger,
 )
 from pykorail.models.refund import RefundFee
 from pykorail.models.reservation import Reservation
+from pykorail.models.run_date import RunDate, netfunnel_action_for
 from pykorail.models.schedule import Schedule, Train
 from pykorail.models.seat import Seat
 from pykorail.models.station import Station, parse_stations
@@ -47,11 +49,13 @@ __all__ = [
     "Disability1To3Passenger",
     "Disability4To6Passenger",
     "Fare",
+    "GuideDogPassenger",
     "Mileage",
     "MileageEntry",
     "Passenger",
     "RefundFee",
     "Reservation",
+    "RunDate",
     "Schedule",
     "Seat",
     "SeatAttribute",
@@ -62,6 +66,7 @@ __all__ = [
     "Train",
     "Transfer",
     "TransferStation",
+    "netfunnel_action_for",
     "parse_bus_stops",
     "parse_stations",
     "parse_transfers",

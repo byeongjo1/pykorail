@@ -44,6 +44,59 @@ Korail(
 > `logout()` 과 `close()` 는 다릅니다. 로그아웃은 프로토콜 상태, 연결은 자원이라
 > 수명이 다릅니다. 계정을 바꿔 다시 로그인하려면 연결이 살아 있어야 합니다.
 
+> [!NOTE]
+> **v0.4.0 부터** I/O 계층이 원본(`src/pykorail/_async`)과 생성물
+> (`src/pykorail/_sync`)로 갈라졌습니다. 공개 경로와 서버로 나가는 요청은 그대로지만,
+> `pykorail.client.create_session` 처럼 **하위 모듈의 내부 이름을 monkeypatch 하던
+> 방식**은 더 이상 실제 클라이언트에 영향을 주지 않습니다(이름 자체는 옛 경로로
+> 계속 접근됩니다). 그런 이름들은 공개 API 가 아니었지만, 동작이 달라진 점은 적어
+> 둡니다.
+
+### `AsyncKorail`
+
+같은 API 를 `await` 로 쓰는 클라이언트입니다. 생성자 인자와 리소스(`stations` ·
+`trains` · `reservations` · `tickets` · `membership` · `airport_bus`)는
+[`Korail`](#korail) 과 같고, I/O 가 닿는 메서드만 코루틴입니다.
+
+타입 힌트에는 `pykorail.resources.AsyncStationResource` 처럼 ``Async*Resource`` 를,
+API 클라이언트는 `pykorail.api.AsyncApiClient` 를 씁니다.
+
+```python
+import asyncio
+
+from pykorail import AsyncKorail
+
+
+async def main() -> None:
+    async with await AsyncKorail.logged_in("me@example.com", "password") as korail:
+        trains = await korail.trains.search("서울", "부산")
+        print(trains[0])
+
+
+asyncio.run(main())
+```
+
+`await` 가 붙는 것: `AsyncKorail` 의 `logged_in` · `login` · `logout` · `close` 와 리소스의
+조회·예매 메서드 전부(`all` · `find` · `search` · `cars` · `seats` · `create` · `pay`
+· `cancel` · `refund` · `mileage` · `coupons` · `stops` …). 컨텍스트 관리자는
+`async with await …` 입니다.
+
+**제약**
+
+- **asyncio 전용입니다.** `curl_cffi` 의 비동기 세션이 asyncio 만 지원하므로 trio 는
+  지원하지 않습니다.
+- **인스턴스 하나는 이벤트 루프 하나에서만** 쓰세요. 로그인 상태를 태스크들이
+  공유합니다. 생성자는 네트워크를 치지 않으므로 루프 밖에서도 됩니다.
+- **동시에 `login` 을 부르는 것은 지원하지 않습니다.**
+- **`requests` 폴백이 없습니다.** `curl_cffi` 를 못 쓰면 `AsyncKorail()` 이
+  [`TransportError`](#예외) 로 안내합니다.
+- **요청 순서는 앱과 같습니다.** `reservations.all()` 처럼 예약마다 상세를 조회하는
+  흐름을 `gather` 로 묶지 않았습니다.
+- **첫 캐시 조회 전에 여러 코루틴으로** `stations.all()` · `airport_bus.stops()` 를
+  동시에 부르면 역·정류장 목록을 중복 조회할 수 있습니다. 캐시가 채워진 뒤에는
+  한 번만 나갑니다. (lock 을 걸면 생성되는 동기 코드와 갈라져 이번 판에는 넣지
+  않았습니다. 필요하면 직접 한 번 조회해 캐시를 채운 뒤 동시 호출을 시작하세요.)
+
 ### `korail.stations`
 
 로그인 없이 호출할 수 있는 공개 조회입니다. 결과는 **클라이언트 수명 동안 캐시**되고,
@@ -271,6 +324,38 @@ print([seat.label for seat in seats if seat.is_available])
 > 순서를 지키세요 — 호차 목록(`cars`) 다음에 좌석 배치(`seats`)입니다. 앱의 화면 순서가
 > 그렇고, 호차 목록 없이 좌석 배치를 바로 조회하면 서버가 인증 오류를 돌려준 사례가 있습니다.
 
+#### 운행 달력 조회
+
+오늘부터 약 두 달치의 날짜별 운행 정보를 조회합니다. **로그인하지 않아도 됩니다.**
+
+```python
+run_dates() -> list[RunDate]
+
+netfunnel_action_for(run_dates: Sequence[RunDate], departure: date | datetime) -> NetFunnelActionCode
+```
+
+`RunDate` 는 하루입니다. `run_date`(운행일 `YYYYMMDD`)와 성수기 여부
+(`is_peak_season`) 말고는 앱의 원문 필드명을 snake_case 로 옮긴 값들(`day_dv_cd` ·
+`hldy_dv_cd` · `sale_dd_dv_cd` 와 `o_trn_op_flg` … `x_trn_op_flg`)이라 뜻을 지어 붙이지
+않았습니다. 플래그는 `"Y"` · `"N"` 외에 빈 문자열일 수 있어 불리언이 아닙니다.
+
+**일반 열차 조회**의 NetFunnel `aid` 는 출발일이 성수기인지로 갈립니다. 할인상품은
+`act_6`(`TRAIN_SEARCH_SPECIAL_OFFER`), 관광열차는 대기열을 거치지 않으므로 이 판정을
+쓰지 않습니다 — 자세한 규칙은 [NetFunnel 대기열](#netfunnel-대기열) 참고.
+`netfunnel_action_for()` 가 그 판정을 대신합니다 — 성수기면 `act_8_2`, 그 밖이거나
+달력에 그날이 없으면 `act_8` 입니다. `datetime` 을 넘기면 KST 로 바꿔 날짜만 봅니다.
+
+```python
+from pykorail import netfunnel_action_for
+
+calendar = korail.trains.run_dates()  # 비동기에서는 await korail.trains.run_dates()
+aid = netfunnel_action_for(calendar, departure)
+```
+
+> [!NOTE]
+> 조회 결과를 **캐시하지 않습니다** — 호출마다 요청합니다. 반복해서 쓸 때는 한 번
+> 받아 재사용하세요. `NetFunnelHelper` 는 이 결과로 자동으로 엮이지 않습니다.
+
 ### `korail.reservations`
 
 | 메서드 | 반환 | 설명 |
@@ -300,10 +385,12 @@ print([seat.label for seat in seats if seat.is_available])
 
 ```python
 train = korail.trains.search("서울", "부산")[0]
-car = next(car for car in korail.trains.cars(train) if car.has_seat())
-window = [seat for seat in korail.trains.seats(train, car) if seat.is_available][:2]
 
-reservation = korail.reservations.create_with_seats(train, window, [AdultPassenger(2)])
+# 좌석은 승객 한 명에 하나씩이라, 두 자리가 남은 호차를 고릅니다.
+car = next(car for car in korail.trains.cars(train) if car.remaining_seats >= 2)
+picked = [seat for seat in korail.trains.seats(train, car) if seat.is_available][:2]
+
+reservation = korail.reservations.create_with_seats(train, picked, [AdultPassenger(2)])
 ```
 
 | 인자 | 설명 |
@@ -703,6 +790,13 @@ repr(card)  # Card(number='****5678', installment=0, is_corporate=False)
 | `SeniorPassenger` | `1` | `131` | 경로 |
 | `Disability1To3Passenger` | `1` | `111` | 중증 장애인 (1~3급) |
 | `Disability4To6Passenger` | `1` | `112` | 경증 장애인 (4~6급) |
+| `GuideDogPassenger` | `1` | `173` (미확인) | 안내견 동반 승객 (시각장애인) |
+
+> [!WARNING]
+> **자격이 필요한 할인은 계정에 자격이 없으면 서버가 거절하지 않고 어른 운임(할인
+> 없음)으로 예약합니다.** 2026-10-16 중증 장애인(`111`)에서 확인했고, 다른 할인 코드와
+> 자격이 있는 계정은 확인하지 않았습니다. 예약 뒤에는 `reservation.seats` 의
+> `passenger_type` 이 기대한 유형인지 확인하세요.
 
 ```python
 Passenger(count=1, discount_type=None, card="", card_no="", card_pw="")
@@ -717,6 +811,45 @@ from pykorail import AdultPassenger, ChildPassenger, Passenger
 Passenger.reduce([AdultPassenger(1), ChildPassenger(1), AdultPassenger(2)])
 # [AdultPassenger(count=3, ...), ChildPassenger(count=1, ...)]
 ```
+
+### 안내견 (`GuideDogPassenger`)
+
+> [!WARNING]
+> **할인 코드 `173` 은 실서버로 확인되지 않았습니다.** 코레일톡+ 7.0.8 APK 에서는
+> 보호(AppSuit/AlienGuard) 문자열이라 값이 읽히지 않아, 외부 비공식 클라이언트의
+> 기록을 그대로 옮겼습니다. 2026-10-16 실서버에서 중증 1 + 안내견 1 조합의
+> **예약은 서버가 `ERR299943`("예약할인이 지원되지 않습니다")로 거절했습니다.** 다만
+> 이 계정의 중증 단독 예약도 위 경고대로 어른 운임으로 강등됐으므로, **이 거절이
+> `173` 때문인지 이 계정에 자격이 없어서인지 가리지 못했습니다.** 그래서 **지금
+> `GuideDogPassenger` 로 예매하면 실패할 수 있습니다.** 근거와 한계는
+> `docs/protocol-evidence-7.0.8.json` 의 `guide_dog_passenger` · `live_validation`
+> 과 #60.
+
+안내견은 유형 코드가 어른과 같은 `1` 이지만 **어른의 하위 클래스가 아닙니다.**
+예매 폼에서는 할인 코드가 달라 별도 블록으로 나가야 하고, 열차 조회 폼에서는
+**어른 칸(`txtPsgFlg_1`)에 더해져** 전송됩니다 (코레일톡+ 7.0.8
+`TrainScheduleViewModel` 의 인원 칸 합산). 유아를 어린이 칸에 더하는 것과 같은
+방식이라, `korail.trains.search(..., passengers=[Disability1To3Passenger(1), GuideDogPassenger(1)])`
+의 조회 폼은 `txtPsgFlg_1=1`, `txtPsgFlg_4=1` 이 됩니다.
+
+좌석 조회의 총 인원(`totPsgCnt`)과 좌석 지정 예매의 "좌석 수 = 승객 수" 검사에서도
+안내견을 **한 명으로 셉니다** — 앱이 `Passengers.sum()` 을 그대로 `txtTotPsgCnt` 에
+싣기 때문입니다.
+
+**앱의 인원 제약은 걸지 않습니다.** 앱의 인원 선택기는 안내견 수가 중증 · 경증 장애인
+합계를 넘으면 막지만(`PassengersBottomSheetKt.warningPassengerType`), pykorail 은
+그 조합을 막지 않고 그대로 보냅니다. 제약 위반은 서버가 판단합니다. 그래서 다음
+조합도 요청 자체는 나갑니다 — 서버가 거절할 수 있습니다.
+
+```python
+from pykorail import GuideDogPassenger
+
+korail.trains.search("서울", "부산", passengers=[GuideDogPassenger(1)])
+```
+
+**공항버스는 지원하지 않습니다.** 앱의 공항버스 승객 목록
+(`PassengerType.airportList()`)에는 어른 · 어린이만 있고 안내견 · 장애인이 없습니다.
+안내견은 열차 조회 · 예매에만 쓰세요.
 
 ## 옵션
 
@@ -920,14 +1053,80 @@ ID 형식이 잘못되면 `ValueError`를 발생시킵니다. 후자는 프로�
 ## NetFunnel 대기열
 
 `NetFunnelHelper` 는 클라이언트에 자동으로 엮여 있지 **않습니다 — 의도된 것입니다.**
-대기열은 코레일 웹 프런트가 통과하는 관문이고, 이 패키지가 쓰는 스마트 앱
-엔드포인트(`smart.letskorail.com`)는 그 뒤에 있지 않습니다. 필요 없는 상황에서 매
-요청마다 외부 게이트를 때리면 비용과 실패 지점만 늘어납니다.
+코레일톡+ 앱은 열차 조회 · 예약 · 내 예약 조회 · 결제 전에 대기열을 통과하지만,
+지금까지 본 캡처에서 통과 키가 스마트 요청(`smart.letskorail.com`)에 실린 적은
+없습니다 — 서버가 통과 여부를 검사한다는 근거가 없어, 필요 없는 상황에서 매 요청마다
+외부 게이트를 때리면 비용과 실패 지점만 늘어납니다.
 
-명절 예매처럼 앱 경로에도 대기열이 붙는 상황을 만나면 직접 꺼내 쓰세요.
+명절 예매처럼 대기열이 실제로 붙는 상황을 만나면 직접 꺼내 쓰세요. `run()` 은 동작
+(`aid`)을 받고, 기본값은 열차 조회(`act_8`)입니다.
 
 ```python
-from pykorail import NetFunnelHelper
+from pykorail import NetFunnelHelper, NetFunnelAction
 
-key = NetFunnelHelper().run()  # 통과할 때까지 블로킹
+with NetFunnelHelper() as nf:
+    key = nf.run()  # 열차 조회 대기열, 통과할 때까지 블로킹
+    pay_key = nf.run(NetFunnelAction.PAY)  # 결제는 다른 대기열이라 따로 통과
 ```
+
+동작과 `aid` 는 다음과 같습니다. 값은 코레일톡+ 7.0.8 의 `NetworkConstants$Netfunnel`
+상수를 AlienGuard 복호 결과로 옮긴 것입니다(암호문·호출 지점 근거는
+`docs/protocol-evidence-7.0.8.json` 의 `netfunnel.actions`).
+
+| 동작 | 상수 | `aid` |
+|---|---|---|
+| 열차 조회 (평시) | `NetFunnelAction.TRAIN_SEARCH` | `act_8` |
+| 열차 조회 (성수기) | `NetFunnelAction.TRAIN_SEARCH_PEAK` | `act_8_2` |
+| 열차 조회 (할인상품) | `NetFunnelAction.TRAIN_SEARCH_SPECIAL_OFFER` | `act_6` |
+| 예약 | `NetFunnelAction.RESERVE` | `act_14` |
+| 결제 | `NetFunnelAction.PAY` | `act_18` |
+| 내 예약 조회 | `NetFunnelAction.RESERVATION_VIEW` | `act_21` |
+
+열차 조회에서 세 값 중 무엇을 쓸지는 앱(`TrainScheduleViewModel.netFunnelTrainSchedule`)
+에 따르면 다음 규칙으로 정해집니다.
+
+1. 할인상품(`SpecialOffer`)을 골랐고 그것이 `ACCOMPANY_4` 가 아니면 `act_6`.
+2. 관광열차(`trainGroup.tour`)면 대기열을 거치지 않습니다(빈 `aid`).
+3. 그 밖에는 `schedule.runDt` 응답의 출발일 항목 성수기 플래그가 참이면 `act_8_2`,
+   아니면 `act_8` 입니다. 플래그는 `bizDdStgCd == "5"` 이고, 그 밖의 값(`1`–`4`)과
+   조회일 항목이 없을 때는 `act_8` 입니다. 그 판정은
+   [`korail.trains.run_dates()`](#운행-달력-조회) 로 운행 달력을 받아
+   `netfunnel_action_for()` 에 넘기면 됩니다.
+
+비동기 코드에서는 `AsyncNetFunnelHelper` 를 `await` 합니다. 리소스와 달리
+`AsyncKorail` 에 엮여 있지 않은 것은 동기판과 같습니다.
+
+```python
+from pykorail import AsyncNetFunnelHelper, NetFunnelAction
+
+async with AsyncNetFunnelHelper() as nf:
+    key = await nf.run(NetFunnelAction.TRAIN_SEARCH_PEAK)
+```
+
+두 헬퍼 모두 선택적 `device_profile` 을 받습니다. 넘기면 User-Agent 의 모델 · OS ·
+빌드가 그 프로파일을 따르고, 생략하면 DynaPath 기본값과 같은 카탈로그 프로파일
+(`s24ultra-a14`)을 씁니다. 코레일 클라이언트와 같은 가상 기기로 보이게 하려면
+`korail.device_profile` 을 넘기세요.
+
+```python
+async with AsyncNetFunnelHelper(device_profile=korail.device_profile) as nf:
+    key = await nf.run()
+```
+
+컨텍스트 매니저로 나가면 `close()` 가 연 HTTP 세션을 정리합니다. 이중 `close()` 는
+조용히 넘어갑니다.
+
+제약:
+
+- `AsyncNetFunnelHelper` 는 asyncio 전용이고 `curl_cffi` 가 필요합니다 — 동기판에는
+  requests 폴백이 있지만 비동기판에는 없습니다.
+- 캐시는 동작(`aid`)별로 나뉩니다. `act_8` 로 받은 티켓을 결제(`act_18`)에 재사용하지
+  않습니다. `clear()` 는 전부, `clear(aid)` 는 그 칸만 비우고, 한 동작이 실패하면
+  실패한 칸만 비웁니다 — 결제 대기열 실패가 조회 티켓을 날리지 않습니다.
+- `aid` 는 `NetFunnelActionCode`(`Literal`)로 정적으로만 검사합니다. 잘못된 문자열을
+  넘겨도 런타임에는 막지 않습니다.
+- 한 인스턴스를 여러 코루틴이 동시에 쓰면 `run()` 이 각자 게이트를 통과합니다. 캐시는
+  **통과를 마친** 티켓만 공유하므로, 대기 중에 끼어든 호출이 미완성 티켓을 빌려 오는
+  일은 없습니다. 대신 그만큼 대기열을 여러 번 때립니다.
+- 비동기 인스턴스는 처음 쓴 이벤트 루프에 묶입니다. 다른 이벤트 루프에서 다시 쓰면
+  `attached to a different loop` 오류가 납니다.

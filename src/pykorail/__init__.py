@@ -15,6 +15,9 @@ API 는 리소스별로 나뉘어 있습니다 — ``korail.stations`` / ``korai
 ``korail.airport_bus``. 로그인·로그아웃·연결 정리만
 :class:`~pykorail.client.Korail` 본체에 있습니다.
 
+같은 API 를 ``await`` 로 쓰려면 :class:`AsyncKorail` 을 쓰세요. 시그니처와 리소스가
+같고, asyncio 전용입니다(``docs/reference.md`` 의 제약 참고).
+
 하위 모듈:
     - :mod:`pykorail.device` — 기기 프로파일 카탈로그 (주입용)
     - :mod:`pykorail.exceptions` — 예외 계층
@@ -29,7 +32,8 @@ from __future__ import annotations
 from importlib import metadata
 
 from pykorail import _compat as _compat  # 최소 파이썬 버전 강제 — 다른 임포트보다 먼저
-from pykorail.auth import NetFunnelHelper
+from pykorail._async.client import AsyncKorail
+from pykorail.auth import AsyncNetFunnelHelper, NetFunnelHelper
 from pykorail.client import Korail
 from pykorail.device import DeviceProfile, DeviceProfileLike, profile_by_id, random_profile
 from pykorail.exceptions import (
@@ -59,11 +63,13 @@ from pykorail.models import (
     Disability1To3Passenger,
     Disability4To6Passenger,
     Fare,
+    GuideDogPassenger,
     Mileage,
     MileageEntry,
     Passenger,
     RefundFee,
     Reservation,
+    RunDate,
     Schedule,
     Seat,
     SeatAttribute,
@@ -74,12 +80,15 @@ from pykorail.models import (
     Train,
     Transfer,
     TransferStation,
+    netfunnel_action_for,
 )
 from pykorail.options import (
     MileageInquiry,
     MileageInquiryCode,
     MileageType,
     MileageTypeCode,
+    NetFunnelAction,
+    NetFunnelActionCode,
     ReserveOption,
     ReserveOptionCode,
     SeatClass,
@@ -116,6 +125,8 @@ __all__ = [
     "AccessRestrictedError",
     "AdultPassenger",
     "AirportBus",
+    "AsyncKorail",
+    "AsyncNetFunnelHelper",
     "BusStop",
     "Car",
     "CarSeat",
@@ -127,6 +138,7 @@ __all__ = [
     "Disability1To3Passenger",
     "Disability4To6Passenger",
     "Fare",
+    "GuideDogPassenger",
     "HttpStatusError",
     "Korail",
     "KorailError",
@@ -138,6 +150,8 @@ __all__ = [
     "MileageType",
     "MileageTypeCode",
     "NeedToLoginError",
+    "NetFunnelAction",
+    "NetFunnelActionCode",
     "NetFunnelError",
     "NetFunnelHelper",
     "NoResultsError",
@@ -149,6 +163,7 @@ __all__ = [
     "Reservation",
     "ReserveOption",
     "ReserveOptionCode",
+    "RunDate",
     "Schedule",
     "Seat",
     "SeatAttribute",
@@ -167,6 +182,7 @@ __all__ = [
     "TransferStation",
     "TransportError",
     "__version__",
+    "netfunnel_action_for",
     "profile_by_id",
     "random_profile",
 ]

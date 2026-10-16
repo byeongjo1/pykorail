@@ -175,11 +175,83 @@
     "전체 앱 설정 초기화 및 에뮬레이터 화면·API레벨 고정값",
     "is_emulator 주입 옵션"
   ],
+  "guide_dog_passenger": {
+    "what": "안내견 동반 승객(GuideDogPassenger). 열차 조회 · 예매 폼에서 어른과 어떻게 다른지.",
+    "apk": {
+      "package": "com.korail.talk",
+      "version": "7.0.8",
+      "source": "jadx 디컴파일 트리. PassengerType · ReqDiscount · TrainScheduleViewModel · Passengers · PassengersBottomSheetKt · TrainScheduleIn.",
+      "psg_tp_cd": "1. PassengerType.GUIDE_DOG 의 psgTpCd 는 ADULT · SENIOR · DISABILITY_* 와 같은 암호문 호출(같은 클래스의 같은 문자열)이라 값이 같음. PassengerType.Companion.basicList() 의 7종에 GUIDE_DOG 가 들어감.",
+      "search_flag": "txtPsgFlg_1 에 어른 · 청소년과 함께 합산됨. TrainScheduleViewModel.buildTrainScheduleIn 의 $EnumSwitchMapping$2 가 GUIDE_DOG 에 6 을 주고, case 6 이 어른 · 청소년과 같은 합계(iIntValue)에 더함. iIntValue 는 TrainScheduleIn 의 txtPsgFlg_1 자리에 들어감.",
+      "seat_count": "안내견은 좌석 · 인원 계산에서 한 명으로 셈. Passengers.sum() 이 dataMap 의 모든 유형을 더하고, 좌석 조회의 txtTotPsgCnt / totPsgCnt 가 그 값을 그대로 씀 (TrainSeatMapViewModel · TrainResearchIn · TResidualSeatsResearchIn).",
+      "reservation_total": "예매 폼 txtTotPsgCnt 도 passengers.sum() 이라 안내견을 포함. toTicketReservationInput 이 유형마다 블록을 만듦.",
+      "client_constraint": "앱은 안내견 수가 중증 · 경증 장애인 합계를 넘지 못하게 막음 (PassengersBottomSheetKt.warningPassengerType). pykorail 은 이 제약을 강제하지 않음 — 서버 거절에 맡김.",
+      "airport_bus": "PassengerType.airportList() 는 어른 · 어린이 두 종류뿐. 안내견은 공항버스 승객 목록에 없음."
+    },
+    "discount_code": {
+      "value": "173",
+      "status": "미확인. 외부 비공식 클라이언트의 요청 값이고 APK 로는 읽지 못했다. 이 계정의 실서버 예약은 ERR299943 로 거절됐지만, 같은 계정·열차의 중증 단독 예약도 할인이 적용되지 않아(아래) 계정 자격 문제와 구분하지 못한다.",
+      "basis": "외부에 공개된 비공식 클라이언트가 txtDiscKndCd=173 (요청 할인)으로 기록한다. 그 클라이언트의 실서버 현황표에는 안내견 예약을 확인한 기록이 없다.",
+      "apk": "확인하지 못함. ReqDiscount.GUIDE_DOG.discKndCd 는 보호(AppSuit/AlienGuard) 문자열(3바이트)이고, value_recovery 의 정수 비교식으로도 쓰이지 않아 읽히지 않음.",
+      "live": "2026-10-16 실서버. 중증 1 + 안내견 1 예약은 ERR299943 로 거절됐다. 같은 열차에서 중증 1명만 보낸 예약은 SUCC 였지만, 응답 원문에서 적용 할인 코드가 h_dcnt_knd_cd2=000(미적용)이고 승객 유형명이 '어른'이었다 — 이 계정에서는 장애인 할인 자체가 적용되지 않는다. 따라서 이 계정으로는 173 이 맞는지 틀린지 판정할 수 없다 (live_validation 참조). 외부 비공식 클라이언트의 동작 문서는 ERR299943 을 '지원하지 않는 예약 할인'으로 분류하며, 청소년 P11 도 같은 코드로 거절됐다. 173 이 앱의 요청 값이라는 근거는 있으나, 이 값으로 예약이 성공한다는 증거는 아직 없다."
+    }
+  },
+  "live_validation": [
+    {
+      "case": "guide dog search (serious 1 + guide dog 1)",
+      "endpoint": "search_schedule",
+      "result": "SUCC",
+      "route": [
+        "서울",
+        "부산"
+      ],
+      "train_count": 10,
+      "sent": {
+        "txtPsgFlg_1": 1,
+        "txtPsgFlg_4": 1,
+        "txtPsgFlg_2": 0,
+        "txtPsgFlg_3": 0,
+        "txtPsgFlg_5": 0
+      },
+      "observed_at_kst": "2026-10-16T17:35+09:00",
+      "note": "매진도 포함(include_no_seats)으로 조회. 조회 칸 조합이 서버에서 정상 처리됨."
+    },
+    {
+      "case": "guide dog reservation (serious 1 + guide dog 1)",
+      "endpoint": "reserve",
+      "result": "rejected",
+      "h_msg_cd": "ERR299943",
+      "h_msg_txt": "예약할인이 지원되지 않습니다",
+      "seat_class": "일반실",
+      "job_id": "1101",
+      "observed_at_kst": "2026-10-16T17:35+09:00",
+      "note": "예약 전 1회 시도, 결제하지 않음. 실패해 예약은 만들어지지 않았고 취소도 필요 없었음. 좌석 지정 예매 · 공항버스 · 제약 위반 거절 확인은 이번 범위가 아님."
+    },
+    {
+      "case": "serious-only reservation on the same train + raw discount codes (diagnostic for ERR299943)",
+      "endpoint": "reserve",
+      "result": "SUCC",
+      "route": [
+        "서울",
+        "부산"
+      ],
+      "seat_class": "일반실",
+      "job_id": "1101",
+      "amount": 14300,
+      "cancelled": true,
+      "applied_discount": "h_dcnt_knd_cd2=000 (미적용), h_psg_tp_cd=1, h_psg_tp_dv_nm=어른",
+      "observed_at_kst": "2026-10-16T17:53:22+09:00",
+      "note": "중증 1명(요청 할인코드 111)만 보내 같은 열차에서 성공하고 즉시 취소함. 다만 응답 원문에서 적용 할인 코드가 000(미적용)이고 승객 유형명이 '어른'이었다 — 이 계정에서는 장애인 할인이 적용되지 않는다. 그래서 중증+안내견의 ERR299943 이 안내견 173 때문인지 계정 자격 때문인지 가릴 수 없다."
+    }
+  ],
   "limits": [
     "각 헤더·폼 변경의 독립적인 필수성은 검증하지 않음.",
     "ID 비교는 동일 계정·시점·프록시 경로에서 수행.",
     "긴 비밀번호 벡터는 오프라인 앱 인코딩 일치 검증이며 서버의 비밀번호 길이 허용 정책 검증이 아님.",
-    "원본 캡처와 실제 계정·기기 ID는 저장소에 포함하지 않음."
+    "원본 캡처와 실제 계정·기기 ID는 저장소에 포함하지 않음.",
+    "안내견 승객(GuideDogPassenger)의 할인 코드 173 은 APK 보호 문자열이라 value_recovery 로 읽지 못했고, 실서버 예약도 ERR299943 로 거절됨. 같은 열차의 중증 단독 예약도 할인이 적용되지 않아(적용 코드 000) 계정 자격 문제와 구분하지 못해 미확인 — 외부 비공식 클라이언트 기록 근거만 있음.",
+    "안내견 조합에 대한 서버의 거절 조건(인원 제약 위반 등), 좌석 지정 예매, 공항버스에서의 동작은 확인하지 않음 (guide_dog_passenger · live_validation 참조).",
+    "자격이 필요한 할인(경로 · 장애인 등)이 자격 없는 계정에서 강등되는 범위 — 어느 할인 코드까지인지, 자격이 있는 계정에서 적용되는지는 확인하지 않음 (live_validation 참조)."
   ],
   "review_followup_validation": [
     {
@@ -220,7 +292,7 @@
     "decision": "현재 생성 방식을 유지. 성능 보장이 아닌 단일 개발 환경의 참고 측정."
   },
   "endpoints_added": {
-    "basis": "경로와 필드 이름은 같은 7.0.8 APK 의 정적 분석(NetworkApi 선언, 요청·응답 모델)에서 확인. 앱이 넣는 값은 문자열 상수가 보호(AppSuit/AlienGuard)돼 있어 읽지 못하므로, korail-mobile-api 2.5.0 의 7.0.8 실서버 검증 기록(docs/verification-708.md, docs/evidence/live-708)에서 성공한 요청의 필드 구성과 대조함. 운임 · 마일리지 · 할인쿠폰 조회에서는 value_recovery 의 방법으로 읽히는 값(십진 정수로 된 상수)을 APK 에서 직접 읽음.",
+    "basis": "경로와 필드 이름은 같은 7.0.8 APK 의 정적 분석(NetworkApi 선언, 요청·응답 모델)에서 확인. 앱이 넣는 값은 문자열 상수가 보호(AppSuit/AlienGuard)돼 있어 읽지 못하므로, 외부 비공식 클라이언트의 7.0.8 실서버 검증 기록에서 성공한 요청의 필드 구성과 대조함. 운임 · 마일리지 · 할인쿠폰 조회에서는 value_recovery 의 방법으로 읽히는 값(십진 정수로 된 상수)을 APK 에서 직접 읽음.",
     "limits": [
       "호차 · 좌석 조회는 아래 live_validation 의 한 차례 실서버 조회로 확인함. 그 밖의 조건(특실, 여러 명, 차종별 차이)은 확인하지 않음.",
       "DynaPath 서명 대상 경로 집합은 앱에서 보호돼 읽지 못함. 서명 없이 성공한다는 것은 실서버 조회로 확인함.",
@@ -589,7 +661,7 @@
         },
         "signed": true,
         "login_required": true,
-        "verification": "2026-10-13 실서버에서 두 번 확인 (seat_reservation_live_validation). 좌석 하나(어른 1)와 좌석 둘(어른 2) 모두 pykorail 의 요청 그대로 예약됐고(SUCC/IRR000018), 돌려받은 예약의 좌석이 고른 좌석과 같았으며, 바로 취소해 예약이 남지 않음. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_seat_designated)과도 같음. 두 확인의 요청은 015 를 실었으나 그때 열차 행의 hSeatAttCd 는 기록하지 않았음 — 값이 다른 행은 미확인."
+        "verification": "2026-10-13 실서버에서 두 번 확인 (seat_reservation_live_validation). 좌석 하나(어른 1)와 좌석 둘(어른 2) 모두 pykorail 의 요청 그대로 예약됐고(SUCC/IRR000018), 돌려받은 예약의 좌석이 고른 좌석과 같았으며, 바로 취소해 예약이 남지 않음. 필드 구성과 순서는 외부 비공식 클라이언트의 7.0.8 실서버 기록(reserve_seat_designated)과도 같음. 두 확인의 요청은 015 를 실었으나 그때 열차 행의 hSeatAttCd 는 기록하지 않았음 — 값이 다른 행은 미확인."
       },
       {
         "resource": "airport_bus.stops",
@@ -776,7 +848,64 @@
         },
         "signed": true,
         "login_required": true,
-        "verification": "2026-10-13 실서버에서 두 번 확인 (transfer_reservation_live_validation). pykorail 의 요청 그대로 두 구간이 예약번호 하나로 예약됨(SUCC/IRR000018). 목록 · 상세가 여정 번호를 같은 값으로 실어 구간별 좌석이 맞게 나뉨. 첫 번째 확인에서 기존 cancel() 의 고정값이 거절돼(ERR800052) 고쳤고, 두 번째 확인에서 고친 cancel(first) 로 두 구간이 함께 취소됨. 필드 구성과 순서는 korail-mobile-api 의 7.0.8 실서버 기록(reserve_transfer)과도 같음."
+        "verification": "2026-10-13 실서버에서 두 번 확인 (transfer_reservation_live_validation). pykorail 의 요청 그대로 두 구간이 예약번호 하나로 예약됨(SUCC/IRR000018). 목록 · 상세가 여정 번호를 같은 값으로 실어 구간별 좌석이 맞게 나뉨. 첫 번째 확인에서 기존 cancel() 의 고정값이 거절돼(ERR800052) 고쳤고, 두 번째 확인에서 고친 cancel(first) 로 두 구간이 함께 취소됨. 필드 구성과 순서는 외부 비공식 클라이언트의 7.0.8 실서버 기록(reserve_transfer)과도 같음."
+      },
+      {
+        "resource": "trains.run_dates",
+        "path": "/classes/com.korail.mobile.schedule.runDt",
+        "declaration": "NetworkApi.postRunDate — @FormUrlEncoded @POST, @FieldMap (network/NetworkApi.java:651-653), 반환 RunDateOut",
+        "request_model": "RunDateIn (CommonIn 상속). 노선 · 날짜 인자가 없음.",
+        "response_models": [
+          "RunDateOut",
+          "RunDateOutItem"
+        ],
+        "fields_sent": [
+          "Device",
+          "Version",
+          "AppVersion",
+          "Key",
+          "timeStamp"
+        ],
+        "fields_not_sent": [
+          "Lang",
+          "Sid"
+        ],
+        "values": {
+          "timeStamp": "요청 시각의 epoch 밀리초 13자. 캡처 시각과 161ms 차이 (NetworkRepositoryImpl.java:12306). pykorail 은 time.time_ns() // 1_000_000 으로 만듦.",
+          "Lang": "CommonIn.lang 은 null 이 될 수 있고 한국어 모드 캡처에는 실리지 않음. 외국어 모드에서만 실리는 것으로 보이나 확인하지 못했으므로 pykorail 은 보내지 않음.",
+          "envelope": "strResult=SUCC, h_msg_cd=API.I00000. 요청 Content-Length 89 가 Device · Version · AppVersion · Key · timeStamp 다섯 필드 길이의 합과 맞음."
+        },
+        "response_key": "runningCalendar",
+        "response_item_keys": [
+          "runDt",
+          "dayDvCd",
+          "bizDdStgCd",
+          "hldyDvCd",
+          "saleDdDvCd",
+          "oTrnOpFlg",
+          "vTrnOpFlg",
+          "sTrnOpFlg",
+          "dTrnOpFlg",
+          "aTrnOpFlg",
+          "gTrnOpFlg",
+          "xTrnOpFlg"
+        ],
+        "unknown_meaning": [
+          "dayDvCd",
+          "hldyDvCd",
+          "saleDdDvCd",
+          "oTrnOpFlg",
+          "vTrnOpFlg",
+          "sTrnOpFlg",
+          "dTrnOpFlg",
+          "aTrnOpFlg",
+          "gTrnOpFlg",
+          "xTrnOpFlg"
+        ],
+        "peak_season": "bizDdStgCd == \"5\". RunDateOutItem.isPeakSeason 이 등호 비교라는 것은 정적 분석으로 확인했고, 상수 \"5\" 는 캡처에서 유도함 (#117). 실측이 확인한 것은 bizDdStgCd 1–3 이 act_8 로 이어진다는 점뿐임. pykorail 은 의미를 확인한 runDt(bizDdStgCd 판정에 쓰임) 외의 필드는 이름을 지어 붙이지 않고 원문 필드명을 snake_case 로 옮긴 이름에 담음.",
+        "signed": false,
+        "login_required": false,
+        "verification": "2026-09-23 · 10-03 · 10-16 캡처 셋으로 확인. 10-16 캡처는 로그인하지 않은 상태였고, 헤더에 DynaPath 토큰도 Sid 도 없었음. 응답은 약 두 달치(63일)였고, 항목 값은 전부 문자열이며 플래그는 Y · N 외에 빈 문자열도 옴 (09-23 캡처에 모든 필드가 빈 항목이 하나 있었음)."
       }
     ],
     "form_flattening": "앱은 요청 모델을 폼으로 펼칠 때 값이 빈 문자열인 필드를 싣지 않음 (NetworkService 의 JsonElement → Map 변환: 길이가 0 보다 클 때만 put). 새 엔드포인트는 resources/base.py 의 without_blanks 로 이 규칙을 따름. 기존 엔드포인트의 폼은 바꾸지 않음.",
@@ -1328,6 +1457,154 @@
         "result": "SUCC/IRG000000. 첫 구간의 예약을 넘겼는데 두 구간이 함께 취소됨. 그 예약번호로 남은 항목 0, 예약 목록 0건.",
         "amounts": "두 예약의 price 가 같은 값(예약 전체)이고, 각 예약의 좌석 금액을 더한 값들의 합이 그 값과 같음 — 구간별 금액은 좌석에 있다는 것이 확인됨."
       }
+    }
+  },
+  "netfunnel": {
+    "observed_at_kst": "2026-10-03 / 2026-09-23",
+    "source": "korail-analysis 의 mitm 캡처 두 개와 NetFunnel SDK 디컴파일 (com.netfunnel.api 1.7.18). 키 값은 저장소에 넣지 않고 길이만 봄.",
+    "captures": [
+      {
+        "file": "capture/korail-20261003-090701.mitm",
+        "summary": "평시. 5101(sid=service_1 · aid=act_8) → 200 → 5004 → ScheduleView."
+      },
+      {
+        "file": "capture/korail-20260923-122021.mitm",
+        "summary": "2026-09-23 추석 직전. 5101(sid=service_1 · aid=act_8_2) 이 201 nwait=534. 5002 를 약 1초 간격으로 네 번 보내 nwait 이 534 → 371 → 203 → 39 → 0 으로 줄었고, 200 뒤에 5004. 실제로 대기열을 통과한 유일한 기록. 두 캡처의 aid 가 act_8 · act_8_2 로 다름 — 동작별 aid 는 #104."
+      }
+    ],
+    "sdk": {
+      "package": "com.netfunnel.api 1.7.18",
+      "locations": [
+        "jadx/sources/com/netfunnel/api/CommandClient.java:57-66 — 5101: opcode · sid · aid · 선택적 user_data",
+        "jadx/sources/com/netfunnel/api/CommandClient.java:122-124 — 5002: opcode · key 만"
+      ]
+    },
+    "wire": {
+      "url": "https://nf.letskorail.com/ts.wseq (HTTP/1.1, 443)",
+      "method": "POST, 값은 query, 본문 비움(Content-Length: 0)",
+      "fixed_headers": {
+        "Accept-Charset": "UTF-8",
+        "Context_Type": "application/x-www-form-urlencoded;charset=UTF-8 — SDK 의 밑줄과 charset 을 포함한 오타 그대로",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Connection": "Keep-Alive",
+        "Accept-Encoding": "gzip"
+      },
+      "host": "명시하지 않음 — 앱도 넣지 않고 클라이언트가 URL 에서 붙임",
+      "user_agent": "인스턴스마다 device.profile.dalvik_user_agent(profile) 로 만듦. 기본은 카탈로그 s24ultra-a14 로, DynaPath 기본값(SM-S928N · Android 14)과 같은 모델 · OS.",
+      "params": {
+        "5101": "opcode · sid=service_1 · aid (10/03 캡처 act_8 · 09/23 캡처 act_8_2)",
+        "5002": "opcode · key",
+        "5004": "opcode · key"
+      },
+      "wait_seconds": "응답 ttl 을 1–30초로 자름. 정수가 아니거나 없으면 1초. SDK 의 getTTL(max_ttl=30, min=1) 과 같고, 앱이 상한을 원격 설정에서 불러오지 않으므로 30 은 고정. 관측된 요청 간격도 약 1초였음."
+    },
+    "host_redirect": {
+      "conclusion": "응답에 실린 ip · port 로 다음 요청을 보내지 않습니다. 늘 고정 호스트(nf.letskorail.com:443 = NETFUNNEL_URL)를 씁니다.",
+      "sdk": [
+        "CommandClient.java:33-38 makeURL 은 response != null && !property.isHostNotmodify() && response.getHost().length() > 0 && response.getPort() > 0 일 때만 응답의 host:port 로 URL 을 만듭니다. 그 밖에는 property 의 고정 URL(URL.make(property))입니다.",
+        "makeURL 호출 지점: :109 CheckedEnter(5002) · :166 Complete(5004) · :209 AliveNotice(5003 — 이 패키지는 보내지 않음). :47 GetTidCheckedEnter(5101)는 응답 이전이라 늘 고정 URL 입니다.",
+        "Property.java:23 host_notmodify_ = true — 기본값이 재지정을 따르지 않는 쪽입니다."
+      ],
+      "app": [
+        "AppSuitLinker6.java:618-638 의 Property 설정자 일곱 개(setProtocol · setHost · setPort · setServiceID · setActionID · setTimeout · setRetry)에 setHostNotmodify 가 없습니다.",
+        "host_notmodify 값을 바꾸는 유일한 경로는 LoadProperty.java:93(서버 JSON 의 server.host_notmodify)인데, LoadProperty.java:108 은 URL 이 비어 있으면 불러오지 않고 끝납니다.",
+        "jadx 전체에서 setHostNotmodify · isHostNotmodify 참조는 com.netfunnel.api 안뿐입니다(LoadProperty.java:93, Property.java:246, CommandClient.java:34). 앱 코드가 값을 바꾸는 곳은 없습니다."
+      ],
+      "captures": "두 캡처의 모든 ts.wseq 응답에 ip=nf.letskorail.com · port=443 이 실렸고, 다음 요청도 모두 nf.letskorail.com:443 이었습니다. 다만 재지정 값이 원래 호스트와 같아, 캡처만으로는 '따른다/따르지 않는다'를 구분할 수 없습니다 — 판단은 위 정적 근거에 기댑니다.",
+      "guard": "tests/_async/test_netfunnel.py::TestRun::test_ignores_host_redirect_in_responses (생성물 tests/_sync)."
+    },
+    "local_check": {
+      "what": "코레일 서버 없이 로컬 수신기로 본문 없는 POST 를 보내 확인함.",
+      "observed": "params 는 query(?opcode=5101)로, 본문은 비고 Content-Length: 0, Content-Type 은 한 번만 나감. Host 는 클라이언트가 URL 에서 붙임."
+    },
+    "live_check": {
+      "observed_at_kst": "2026-10-16",
+      "scope": "사용자가 이 건에 한해 승인한 자격증명 없는 확인. 5101 → 5004 한 번. 키 값은 저장소에 넣지 않고 길이만 봄.",
+      "result": "새 형태(https + POST + 위 고정 헤더 + Dalvik UA)로 5101 이 200 nwait=0(응답 키 252자), 이어 5004 가 200. 게이트가 이 형태를 거절하지 않음.",
+      "limit": "이날 대기가 없어(nwait=0) 201 대기 상태에서의 수용은 확인하지 못함. 대기 중 폴링(5002)도 실제로는 나가지 않았음."
+    },
+    "unverified": [
+      "서버가 기존 GET/http 요청을 거부하는지, 아니면 받아주는지. 2026-10-16 확인은 새 형태가 평시(200)에 수용된다는 것만 보임 — 대기(201) 상태에서 옛 형태와 새 형태가 어떻게 다른지는 알 수 없음.",
+      "5002 에 남는 필드(sid · aid · ttl)를 서버가 무시하는지 — 앱은 보내지 않음.",
+      "NetFunnel SDK 의 HttpURLConnection 과 이 패키지의 curl_cffi 임퍼소네이션 사이의 TLS · ALPN 지문 차이를 서버가 교차 검증하는지. 이 이슈에서는 바꾸지 않음.",
+      "2026-09-23 캡처에서 대기열 통과 직후 ScheduleView 가 403 이었던 이유.",
+      "링커 바깥의 런타임 경로(리플렉션, 다른 난독화 링커)에서 host_notmodify 를 바꾸는지 — 정적으로 찾은 범위에서는 없음.",
+      "서버가 실제로 다른 ip 를 내려 주는 상황이 있는지 — 두 캡처에서는 늘 nf.letskorail.com:443 이었음."
+    ],
+    "actions": {
+      "source": "com.korail.talk.common.NetworkConstants$Netfunnel (jadx). SERVICE_ID · PROTOCOL · HOST 를 포함한 값이 모두 AlienGuard 문자열 암호화를 거친다.",
+      "algorithm": "4바이트 반복 XOR. 각 문자열의 암호문 앞 4바이트를 알려진 평문 접두와 XOR 하면 4바이트 키가 나오고, 그것을 반복해 XOR 하면 나머지가 풀린다. 키는 상수마다 다르다(난독화 호출마다 인자가 다름).",
+      "known_plaintexts": [
+        {"constant": "PROTOCOL", "plaintext": "https", "ciphertext": [25, 93, 221, 66, 2]},
+        {"constant": "HOST", "plaintext": "nf.letskorail.com", "ciphertext": [80, 95, 104, 20, 91, 77, 53, 19, 81, 75, 39, 17, 82, 23, 37, 23, 83]},
+        {"constant": "SERVICE_ID", "plaintext": "service_1", "ciphertext": [134, 215, 54, 144, 156, 209, 33, 185, 196]},
+        {"constant": "ACTION_ID", "plaintext": "act_8", "ciphertext": [21, 27, 25, 17, 76]},
+        {"constant": "ACTION_PEAK_SEASON_ID", "plaintext": "act_8_2", "ciphertext": [15, 222, 146, 216, 86, 226, 212]}
+      ],
+      "constants": [
+        {"apk": "ACTION_ID", "aid": "act_8", "pykorail": "NetFunnelAction.TRAIN_SEARCH", "ciphertext": [21, 27, 25, 17, 76]},
+        {"apk": "ACTION_PEAK_SEASON_ID", "aid": "act_8_2", "pykorail": "NetFunnelAction.TRAIN_SEARCH_PEAK", "ciphertext": [15, 222, 146, 216, 86, 226, 212]},
+        {"apk": "ACTION_PRODUCT_ID", "aid": "act_6", "pykorail": "NetFunnelAction.TRAIN_SEARCH_SPECIAL_OFFER", "ciphertext": [192, 232, 43, 183, 151]},
+        {"apk": "ACTION_RESERVE_ID", "aid": "act_14", "pykorail": "NetFunnelAction.RESERVE", "ciphertext": [250, 38, 116, 137, 170, 113]},
+        {"apk": "ACTION_PAY_ID", "aid": "act_18", "pykorail": "NetFunnelAction.PAY", "ciphertext": [200, 189, 176, 219, 152, 230]},
+        {"apk": "ACTION_RESERVATION_TICKET_ID", "aid": "act_21", "pykorail": "NetFunnelAction.RESERVATION_VIEW", "ciphertext": [129, 87, 39, 70, 210, 5]}
+      ],
+      "unused": "ACTION_TEST_ID 는 act_4 로 풀리지만 어떤 화면 호출 지점에서도 쓰이지 않아 상수로 옮기지 않았다.",
+      "call_sites_note": "각 화면은 NetworkConstants$Netfunnel 상수를 참조하지 않고 자기 자리에서 같은 바이트 배열을 직접 복호해 aid 로 넘긴다. 그래서 동작↔aid 대응의 근거는 상수 정의가 아니라 아래 호출 지점의 암호문이다.",
+      "call_sites": [
+        {"where": "TrainScheduleViewModel:5145,5246", "aid": "act_14", "pykorail": "NetFunnelAction.RESERVE", "ciphertext": [102, 75, 179, 218, 54, 28]},
+        {"where": "TrainSeatMapViewModel:2700,2792", "aid": "act_14", "pykorail": "NetFunnelAction.RESERVE", "ciphertext": [21, 210, 143, 12, 69, 133]},
+        {"where": "ReservationWaitViewModel:575", "aid": "act_14", "pykorail": "NetFunnelAction.RESERVE", "ciphertext": [110, 113, 135, 130, 62, 38]},
+        {"where": "HomeViewModel:6240", "aid": "act_14", "pykorail": "NetFunnelAction.RESERVE", "ciphertext": [133, 60, 129, 131, 213, 107]},
+        {"where": "PayViewModel:6479", "aid": "act_18", "pykorail": "NetFunnelAction.PAY", "ciphertext": [142, 119, 110, 61, 222, 44]},
+        {"where": "FPayViewModel:802", "aid": "act_18", "pykorail": "NetFunnelAction.PAY", "ciphertext": [38, 50, 185, 25, 118, 105]},
+        {"where": "MyReservationViewModel:2482", "aid": "act_21", "pykorail": "NetFunnelAction.RESERVATION_VIEW", "ciphertext": [178, 68, 206, 132, 225, 22]},
+        {"where": "TrainScheduleViewModel.netFunnelTrainSchedule (평시)", "aid": "act_8", "pykorail": "NetFunnelAction.TRAIN_SEARCH", "ciphertext": [172, 148, 42, 53, 245]},
+        {"where": "TrainScheduleViewModel.netFunnelTrainSchedule (성수기)", "aid": "act_8_2", "pykorail": "NetFunnelAction.TRAIN_SEARCH_PEAK", "ciphertext": [133, 130, 89, 202, 220, 190, 31]},
+        {"where": "TrainScheduleViewModel.netFunnelTrainSchedule (할인상품)", "aid": "act_6", "pykorail": "NetFunnelAction.TRAIN_SEARCH_SPECIAL_OFFER", "ciphertext": [201, 97, 132, 178, 158]}
+      ],
+      "selection_rule": {
+        "train_search": [
+          "할인상품(SpecialOffer)을 골랐고 그것이 ACCOMPANY_4 가 아니면 ACTION_PRODUCT_ID(act_6).",
+          "관광열차(trainGroup.tour)면 aid 가 빈 문자열이고 대기열을 거치지 않는다.",
+          "그 밖에는 schedule.runDt 응답의 출발일 항목(RunDateOutItem)을 찾아 isPeakSeason() 이 참이면 ACTION_PEAK_SEASON_ID(act_8_2), 아니면 ACTION_ID(act_8)."
+        ],
+        "peak_flag": "RunDateOutItem.isPeakSeason() 은 bizDdStgCd 를 한 글자 상수와 Intrinsics.areEqual(등호)로 비교한다. 그 상수는 한 바이트라 XOR 로 직접 복호하지 못했고, 등호와 캡처로부터 \"5\" 로 유도했다: 2026-09-23(추석 직전) 캡처의 출발일 bizDdStgCd=5 에서 5101 이 act_8_2 였고, 2026-10-03 캡처의 출발일 bizDdStgCd=4 에서 act_8 이었다. 등호이므로 성수기 상수는 \"5\" 하나뿐이고 1–4 는 성수기가 아니다.",
+        "missing_run_date_item": "schedule.runDt 응답에 조회일(출발일)에 해당하는 RunDateOutItem 이 없으면 act_8 이다. 아래 linker_basis 의 술어 해석으로 확정했고 실측하지 못했다(live_check.limit 참조).",
+        "source": "TrainScheduleViewModel.netFunnelTrainSchedule, RunDateOutItem.isPeakSeason"
+      },
+      "linker_basis": {
+        "what": "RunDateOutItem.isPeakSeason() 과 TrainScheduleViewModel.netFunnelTrainSchedule 의 분기가 부르는 AppSuitLinker1 의 디스패치 상수 200개도 AlienGuard 4바이트 반복 XOR 로 암호화돼 있다. 값이 전부 -13578… 로 시작해 접두 -135 로 키가 나오고, 200개 전부가 실제 case 라벨로 풀린다.",
+        "constants": [
+          {"constant": "GAXYLALVWQJPDOSYYJADJMIUCLYWYUQU", "value": -1357815058, "body": "Intrinsics.areEqual(objArr[0], objArr[1]) — isPeakSeason() 의 성수기 비교"},
+          {"constant": "KLCGPKBQAJVFWEVXZFGOXBWZOYTCOUXV", "value": -1357815049, "body": "((Map) obj).get(objArr[0]) — 출발일 항목 조회"},
+          {"constant": "QGBKVNACRFGZIUGRHCKAKROTGORDTDCP", "value": -1357814990, "body": "((CharSequence) obj).length() — 빈 aid 검사"}
+        ],
+        "predicates": "분기에는 한 글자 숫자 문자열을 parseInt 하는 불투명 술어가 둘 끼어 있다 — P = parseInt(method_name_2(-687730656, 246841685, {68})) > 0, Q = parseInt(method_name_3(-1293188141, {90}, -219769120, -1814047807)) > 1. 같은 메서드가 new Object[P ? 1 : 0] 로 배열을 만들고 objArr[Q ? 1 : 0] 에 출발일을 넣어 Map.get 을 부른다. 배열이 비거나 범위를 벗어나면 앱이 죽으므로 P 는 참, Q 는 거짓이다 — 같은 인자의 술어가 APK 전체에서 new Object[P ? 1 : 0] 꼴로 64곳, objArr[Q ? 1 : 0] 꼴로 120곳 넘게 반복되는 난독화 관용구다.",
+        "branch": "P 를 참, Q 를 거짓으로 대입하면 분기는 성수기 → act_8_2, 평시 → act_8 이고, 출발일 항목이 없을 때의 가지(Q ? act_8_2 : act_8)는 act_8 이다."
+      },
+      "peak_season": {
+        "what": "출발일의 bizDdStgCd 값에 따른 5101 aid 관측과 근거.",
+        "observations": [
+          {"bizDdStgCd": "1", "aid": "act_8", "basis": "2026-10-16 실측 (10/16 출발)"},
+          {"bizDdStgCd": "2", "aid": "act_8", "basis": "2026-10-16 실측 (10/20 출발)"},
+          {"bizDdStgCd": "3", "aid": "act_8", "basis": "2026-10-16 실측 (10/17 출발)"},
+          {"bizDdStgCd": "4", "aid": "act_8", "basis": "2026-10-03 캡처"},
+          {"bizDdStgCd": "5", "aid": "act_8_2", "basis": "2026-09-23 캡처"},
+          {"bizDdStgCd": "(출발일 항목 없음)", "aid": "act_8", "basis": "정적 분석만 (linker_basis)"}
+        ]
+      },
+      "live_check": {
+        "observed_at_kst": "2026-10-16",
+        "scope": "사용자가 이 건에 한해 승인한 korail_clean 에뮬레이터의 코레일톡+ 7.0.8 확인. 로그인 없이 광명→동대구 열차 조회 3회. 예약·결제 없음. 키 값은 저장소에 넣지 않고 길이만 봄.",
+        "capture": "capture/korail-20261016-153631.mitm (흐름 26건)",
+        "result": "세 조회 모두 5101 aid=act_8, 이어 5004 와 ScheduleView 가 200. 같은 세션의 runDt 응답 bizDdStgCd 는 1(금·월)·2(화–목)·3(토·일) 주기였고 출발일은 10/16(1)·10/17(3)·10/20(2).",
+        "limit": "출발일 항목이 없을 때, act_6(할인상품), 관광열차(빈 aid)는 실측 범위 밖이다. runDt 응답이 판매 기간보다 넓은 약 두 달을 덮어 앱 UI 로는 출발일 항목 없음 상황을 만들 수 없다."
+      },
+      "guard": "tests/test_netfunnel_actions.py 가 known_plaintexts 로 4바이트 반복 키를, constants 와 call_sites 의 암호문을 상수와 대조하고, NetFunnelActionCode 리터럴이 상수 집합과 같은지 검사한다. 한계: 키를 접두(act_ 등)에서 뽑으므로 각 암호문의 앞 4바이트는 이 테스트로 검증되지 않는다 — 그 부분은 APK 원본과 직접 대조해야 한다(137→135 오타가 그렇게 새 나갔다).",
+      "unverified": [
+        "2026-09-23 캡처에서 대기열 통과 직후 ScheduleView 가 403 이었던 이유."
+      ]
     }
   },
   "login_password_change_gate": {

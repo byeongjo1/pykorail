@@ -1,6 +1,7 @@
 """테스트가 공유하는 코레일 응답 페이로드 샘플.
 
 필드 이름과 모양은 실제 응답에서 온 것입니다 — 새 필드를 지어내지 마세요.
+맨 아래의 NetFunnel 골든만 요청(헤더·params)이고, 그 밖의 값은 응답입니다.
 """
 
 from __future__ import annotations
@@ -703,3 +704,78 @@ TRANSFER_FARE_PAYLOAD = {
         },
     ],
 }
+
+# ---------------------------------------------------------------- 운행 달력
+# 필드 이름은 코레일+ 7.0.8 의 ``RunDateOutItem`` 선언 그대로이고, 목록 키
+# (``runningCalendar``)와 값의 **모양**(Y·N 플래그, 빈 문자열로 오는 필드)은
+# 2026-09-23 · 10-03 · 10-16 캡처에서 본 그대로입니다. 값 자체는 예시입니다.
+
+RUN_DATE_ITEM = {
+    "runDt": "20261016",
+    "dayDvCd": "6",
+    "bizDdStgCd": "1",
+    "hldyDvCd": "",
+    "saleDdDvCd": "5",
+    "oTrnOpFlg": "Y",
+    "vTrnOpFlg": "N",
+    "sTrnOpFlg": "Y",
+    "dTrnOpFlg": "N",
+    "aTrnOpFlg": "N",
+    "gTrnOpFlg": "N",
+    "xTrnOpFlg": "N",
+}
+
+#: ``bizDdStgCd == "5"`` 인 성수기 날짜.
+PEAK_RUN_DATE_ITEM = {**RUN_DATE_ITEM, "runDt": "20261017", "dayDvCd": "7", "bizDdStgCd": "5"}
+
+#: 모든 필드가 빈 문자열인 항목. 2026-09-23 캡처에 실제로 있었습니다 — 플래그가
+#: 불리언이 아니라 세 번째 상태(빈 값)를 가질 수 있다는 근거입니다.
+BLANK_RUN_DATE_ITEM = dict.fromkeys(RUN_DATE_ITEM, "")
+
+RUN_DATE_PAYLOAD = {
+    "strResult": "SUCC",
+    "h_msg_cd": "API.I00000",
+    "h_msg_txt": "Success",
+    "runningCalendar": [RUN_DATE_ITEM, PEAK_RUN_DATE_ITEM, BLANK_RUN_DATE_ITEM],
+}
+
+#: NetFunnel 대기열 게이트에 실려 나가는 헤더. 이 값이 바뀌면 코레일 앞단이 거절합니다.
+#: ``Host`` 는 넣지 않습니다 — 앱도 직접 넣지 않고 클라이언트가 URL 에서 붙입니다.
+#: ``Context_Type`` 의 밑줄과 ``charset=UTF-8`` 은 앱 SDK 의 오타 그대로입니다.
+#: ``User-Agent`` 는 프로파일별 Dalvik 문자열이라 여기엔 기본 프로파일 값만 둡니다 —
+#: ``device_profile`` 을 넘긴 경우는 테스트가 따로 확인합니다.
+NETFUNNEL_HEADERS_GOLDEN = {
+    "Accept-Charset": "UTF-8",
+    "Context_Type": "application/x-www-form-urlencoded;charset=UTF-8",
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Connection": "Keep-Alive",
+    "Accept-Encoding": "gzip",
+    "User-Agent": "Dalvik/2.1.0 (Linux; U; Android 14; SM-S928N Build/UP1A.231005.007)",
+}
+
+#: 대기 → 대기 → 통과 → 완료 흐름에서 나가야 하는 요청 순서(method + url + params).
+#: opcode 순서(5101 → 5002 → 5004)와 5101 의 sid · aid, 5002/5004 의 key 가 하나라도
+#: 달라지면 대기열을 통과하지 못합니다. 5002 에 sid · aid · ttl 을 되붙이지 마세요 —
+#: 앱은 그 셋을 보내지 않습니다. 동기판과 비동기판이 **같은** 이 값을 만족해야 합니다.
+NETFUNNEL_CALLS_GOLDEN = [
+    {
+        "method": "POST",
+        "url": "https://nf.letskorail.com/ts.wseq",
+        "params": {"opcode": "5101", "sid": "service_1", "aid": "act_8"},
+    },
+    {
+        "method": "POST",
+        "url": "https://nf.letskorail.com/ts.wseq",
+        "params": {"opcode": "5002", "key": "TICKET-1"},
+    },
+    {
+        "method": "POST",
+        "url": "https://nf.letskorail.com/ts.wseq",
+        "params": {"opcode": "5002", "key": "TICKET-1"},
+    },
+    {
+        "method": "POST",
+        "url": "https://nf.letskorail.com/ts.wseq",
+        "params": {"opcode": "5004", "key": "TICKET-1"},
+    },
+]

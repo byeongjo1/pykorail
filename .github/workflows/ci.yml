@@ -29,6 +29,10 @@ permissions:
 env:
   # uv 가 파이썬을 직접 받게 두면 setup-python 보다 빠르고 3.15 도 바로 씁니다.
   UV_PYTHON_DOWNLOADS: automatic
+  # 커버리지 배지가 읽는 매트릭스 칸. 버전마다 수치가 조금씩 달라 하나로 고정해야
+  # 하는데, test 잡의 조건과 배지 잡의 아티팩트 이름이 여기 한 곳을 봅니다 —
+  # 두 군데에 따로 적으면 한쪽만 바뀌었을 때 아티팩트를 못 찾고 조용히 실패합니다.
+  BADGE_PYTHON: "3.14"
 
 jobs:
   lint:
@@ -57,6 +61,13 @@ jobs:
 
       - name: ty check
         run: uv run ty check
+
+      - name: 생성물 최신인지 (unasync --check)
+        # src/pykorail/_sync · tests/_sync 는 _async 에서 생성합니다. 생성물이 뒤처진
+        # 채 머지되면 사람이 _sync 를 직접 고친 것과 같아져 다음 생성에서 사라지거나,
+        # 생성 규칙이 조용히 갈라집니다. tests/test_packaging.py 도 같은 검사를 하지만
+        # 그쪽은 파이썬 매트릭스마다 돌아 비용이 큽니다 — 여기서 한 번만 봅니다.
+        run: uv run python scripts/unasync.py --check
 
       - name: 워크플로 린트 (actionlint)
         # "워크플로를 고쳤으면 actionlint 를 돌려라"(AGENTS.md §6)는 사람에게만
@@ -102,6 +113,16 @@ jobs:
         # 커버리지 하한(90%)은 pyproject 의 addopts 에 있어 여기서 다시 지정하지 않습니다.
         run: uv run pytest --cov-report=xml --cov-report=term-missing --junitxml=junit.xml
 
+      - name: 커버리지 총계
+        # 배지 잡(coverage-badge)이 읽습니다. 버전마다 수치가 조금씩 달라 하나로
+        # 고정해야 하는데, 매트릭스에서 BADGE_PYTHON 한 곳만 돌립니다.
+        #
+        # `!cancelled()` 라서 커버리지가 하한(90%) 아래로 떨어져 pytest 가 실패해도
+        # 수치를 남깁니다. 기본값(success())이면 test 잡이 실패하는 순간 배지도
+        # 멈춰서, 빨간 배지를 만들 길이 없습니다.
+        if: ${{ !cancelled() && matrix.python == env.BADGE_PYTHON }}
+        run: uv run coverage report --format=total --precision=0 > coverage-total.txt
+
       - name: 커버리지 요약
         if: always()
         run: |
@@ -119,8 +140,65 @@ jobs:
           path: |
             coverage.xml
             junit.xml
+            coverage-total.txt
           if-no-files-found: warn
           retention-days: 14
+
+  # 커버리지 배지를 develop 푸시에서만 갱신합니다. shields.io 의 endpoint 배지가
+  # `badges` 브랜치의 coverage.json 을 읽어 그립니다. Codecov 처럼 토큰·앱 설치가
+  # 필요한 외부 서비스를 새로 들이지 않으려고 CI 가 직접 만듭니다.
+  coverage-badge:
+    name: 커버리지 배지
+    runs-on: ubuntu-latest
+    needs: [test]
+    # PR 에서는 건너뜁니다. 아래에서 이 잡에만 쓰기 권한을 주려는 것입니다 —
+    # 서드파티 의존성 코드를 실행하는 `test` 잡에는 쓰기 권한을 주지 않습니다.
+    #
+    # `!cancelled()`: `needs: [test]` 는 매트릭스 **전체**를 기다립니다. 기본값이면
+    # 커버리지 하한 미달이나 프리릴리스(3.15) 한 칸의 실패만으로도 배지가 멈춥니다
+    # — 배지는 BADGE_PYTHON 한 칸만 쓰는데도요. 그래서 실패해도 갱신합니다.
+    if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+    permissions:
+      contents: write
+    steps:
+      - name: 커버리지 총계 내려받기
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-py${{ env.BADGE_PYTHON }}
+
+      - name: 배지 JSON 만들기
+        run: |
+          total=$(cat coverage-total.txt)
+          case $total in
+            9[0-9]|100) color=brightgreen ;;
+            8[0-9])     color=green ;;
+            7[0-9])     color=yellowgreen ;;
+            *)          color=red ;;
+          esac
+          printf '{"schemaVersion":1,"label":"coverage","message":"%s%%","color":"%s"}\n' \
+            "$total" "$color" > badge.json
+
+      - name: badges 브랜치에 올리기
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # actions/checkout 을 쓰지 않습니다. 쓰면 tests/test_packaging.py 가 이
+          # 잡에도 태그를 받는 옵션(fetch-depth)을 요구합니다 — 모든 체크아웃에
+          # 요구합니다. 배지 파일 하나만 있으면 되어서 고아 브랜치를 직접 만듭니다.
+          git init -q badges
+          cd badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp ../badge.json coverage.json
+          git add coverage.json
+          git commit -q -m "chore: 커버리지 배지 갱신"
+          # `git init` 이 만든 로컬 브랜치는 master 라서 `origin badges` 로는 보낼
+          # 브랜치를 못 찾습니다 — `HEAD:badges` 로 밀어야 합니다.
+          # 이력은 쌓지 않습니다. `badges` 는 ruleset 보호 대상(develop · main ·
+          # 태그)이 아니라 강제 푸시가 막히지 않습니다.
+          git push --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            HEAD:badges
 
   lowest:
     name: 하한 의존성 (3.11)

@@ -1,3 +1,6 @@
+# 이 파일은 생성물입니다 — 직접 고치지 마세요.
+# 원본: tests/_async/conftest.py
+# 다시 만들려면: uv run python scripts/unasync.py
 """가짜 HTTP 세션 — 네트워크 없이 리소스를 돌립니다."""
 
 from __future__ import annotations
@@ -8,13 +11,15 @@ from typing import Any
 
 import pytest
 
-from pykorail.client import Korail
+from pykorail._sync import client as client_module
+from pykorail._sync.client import Korail
 from pykorail.constants import API_ENDPOINTS
 from tests.payloads import (
     FARE_PAYLOAD,
     OK,
     REFUND_FEE_PAYLOAD,
     RESERVATION_LIST_PAYLOAD,
+    RUN_DATE_PAYLOAD,
     SEARCH_PAYLOAD,
     SEAT_CARS_PAYLOAD,
     SEAT_DETAIL_PAYLOAD,
@@ -85,6 +90,10 @@ class FakeSession:
         return self._respond("POST", url, kwargs)
 
     def close(self) -> None:
+        # 실제 curl_cffi 세션은 두 번째 close() 에서 TypeError 를 냅니다. 가짜도 똑같이 굴어
+        # 이중 close 보호가 실제로 일하는지 테스트가 잡을 수 있게 합니다.
+        if self.closed:
+            raise TypeError("세션을 두 번 닫았습니다")
         self.closed = True
 
     # ------------------------------------------------------------------ 헬퍼
@@ -112,7 +121,7 @@ def make_korail(monkeypatch: pytest.MonkeyPatch):
 
     def factory(routes: dict[str, Any], **kwargs: Any) -> tuple[Korail, FakeSession]:
         session = FakeSession(routes)
-        monkeypatch.setattr("pykorail.client.create_session", lambda headers: session)
+        monkeypatch.setattr(client_module, "create_session", lambda headers: session)
         return Korail(**kwargs), session
 
     return factory
@@ -125,6 +134,7 @@ def korail(make_korail) -> tuple[Korail, FakeSession]:
         {
             "stationdata": STATION_PAYLOAD,
             "search_schedule": SEARCH_PAYLOAD,
+            "run_dates": RUN_DATE_PAYLOAD,
             "seat_cars": SEAT_CARS_PAYLOAD,
             "seat_map": SEAT_MAP_PAYLOAD,
             "fare": FARE_PAYLOAD,

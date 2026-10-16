@@ -1,3 +1,6 @@
+# 이 파일은 생성물입니다 — 직접 고치지 마세요.
+# 원본: tests/_async/test_resources.py
+# 다시 만들려면: uv run python scripts/unasync.py
 """리소스별 동작 — 조회·예매·결제·승차권."""
 
 from __future__ import annotations
@@ -7,6 +10,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from pykorail._shared.blank import without_blanks
+from pykorail._shared.clock import KST, to_kst
+from pykorail._sync.resources import trains
+from pykorail._sync.resources.trains import MAX_PAGES, PAST_TOLERANCE
 from pykorail.constants import API_ENDPOINTS
 from pykorail.exceptions import (
     AccessRestrictedError,
@@ -18,11 +25,7 @@ from pykorail.exceptions import (
 )
 from pykorail.models import AdultPassenger, Card, ChildPassenger, Reservation, Seat, Ticket, Transfer
 from pykorail.options import SeatClass
-from pykorail.resources import trains
-from pykorail.resources.base import without_blanks
-from pykorail.resources.clock import KST, to_kst
-from pykorail.resources.trains import MAX_PAGES, PAST_TOLERANCE
-from tests.conftest import Replies, Reply
+from tests._sync.conftest import Replies, Reply
 from tests.payloads import (
     ACCESS_RESTRICTED,
     CAR_INFO,
@@ -217,7 +220,7 @@ class TestStations:
         client, _ = korail
 
         # when
-        client.stations.all().clear()
+        (client.stations.all()).clear()
 
         # then
         assert len(client.stations.all()) == 3
@@ -753,6 +756,113 @@ class TestTransferStations:
         assert stations == []
 
 
+class TestRunDates:
+    """운행 달력 — ``schedule.runDt``."""
+
+    def test_sends_exact_form_fields(self, korail) -> None:
+        """폼 필드 이름이 바뀌면 서버가 조용히 다른 달력을 줍니다."""
+        # given
+        client, session = korail
+
+        # when
+        client.trains.run_dates()
+
+        # then
+        assert set(session.kwargs_for("run_dates")["data"]) == {
+            "Device",
+            "Version",
+            "AppVersion",
+            "Key",
+            "timeStamp",
+        }
+
+    def test_timestamp_is_the_request_time_in_epoch_milliseconds(self, korail, monkeypatch) -> None:
+        # given
+        client, session = korail
+        monkeypatch.setattr(trains.time, "time_ns", lambda: 1_700_000_000_123_000_000)
+
+        # when
+        client.trains.run_dates()
+
+        # then
+        assert session.kwargs_for("run_dates")["data"]["timeStamp"] == "1700000000123"
+
+    def test_goes_in_the_form_body_and_unsigned(self, korail) -> None:
+        # given
+        client, session = korail
+
+        # when
+        client.trains.run_dates()
+
+        # then
+        kwargs = session.kwargs_for("run_dates")
+        assert "params" not in kwargs
+        assert "x-dynapath-m-token" not in kwargs.get("headers", {})
+
+    def test_parses_every_field_verbatim(self, korail) -> None:
+        # given
+        client, _ = korail
+
+        # when
+        run_dates = client.trains.run_dates()
+
+        # then
+        first = run_dates[0]
+        assert (first.run_date, first.biz_dd_stg_cd, first.day_dv_cd) == ("20261016", "1", "6")
+        assert (first.hldy_dv_cd, first.sale_dd_dv_cd) == ("", "5")
+        assert (first.o_trn_op_flg, first.v_trn_op_flg, first.s_trn_op_flg) == ("Y", "N", "Y")
+        assert (first.d_trn_op_flg, first.a_trn_op_flg, first.g_trn_op_flg, first.x_trn_op_flg) == ("N", "N", "N", "N")
+
+    def test_blank_item_keeps_empty_strings(self, korail) -> None:
+        """플래그의 세 번째 상태(빈 값)를 불리언으로 접지 않습니다."""
+        # given
+        client, _ = korail
+
+        # when
+        run_dates = client.trains.run_dates()
+
+        # then
+        blank = run_dates[2]
+        assert (blank.run_date, blank.biz_dd_stg_cd, blank.s_trn_op_flg) == ("", "", "")
+
+    def test_peak_season_flag_is_biz_dd_stg_cd_5(self, korail) -> None:
+        # given
+        client, _ = korail
+
+        # when
+        run_dates = client.trains.run_dates()
+
+        # then
+        assert [day.is_peak_season for day in run_dates] == [False, True, False]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"strResult": "SUCC"},
+            {"strResult": "SUCC", "runningCalendar": None},
+            {"strResult": "SUCC", "runningCalendar": []},
+        ],
+        ids=["absent", "null", "empty"],
+    )
+    def test_no_calendar_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
+        # given
+        client, _ = make_korail({"run_dates": body})
+
+        # when
+        run_dates = client.trains.run_dates()
+
+        # then
+        assert run_dates == []
+
+    def test_failure_response_raises(self, make_korail) -> None:
+        # given
+        client, _ = make_korail({"run_dates": NO_RESULTS})
+
+        # when & then
+        with pytest.raises(KorailError):
+            client.trains.run_dates()
+
+
 class TestTransferSearch:
     """환승 여정 — 직통 조회와 같은 엔드포인트, 여정 종류만 다릅니다."""
 
@@ -903,7 +1013,7 @@ class TestFares:
     def test_lists_the_fares_of_a_train(self, make_korail) -> None:
         # given
         client, _ = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         fares = client.trains.fares(train)
@@ -934,7 +1044,7 @@ class TestFares:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
         # given
         client, session = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.fares(train)
@@ -945,7 +1055,7 @@ class TestFares:
     def test_sends_one_train_as_single_values(self, make_korail) -> None:
         # given
         client, session = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.fares(train)
@@ -971,7 +1081,7 @@ class TestFares:
         """앱은 요청 모델을 펼친 뒤에 열차별 칸을 따로 넣어, 빈 상품번호도 그대로 실립니다."""
         # given
         client, session = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.fares(train)
@@ -1023,7 +1133,7 @@ class TestFares:
     def test_is_signed_but_carries_no_sid(self, make_korail) -> None:
         # given
         client, session = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.fares(train)
@@ -1036,7 +1146,7 @@ class TestFares:
     def test_goes_in_the_form_body_not_the_query(self, make_korail) -> None:
         # given
         client, session = make_korail(FARE_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.fares(train)
@@ -1048,7 +1158,7 @@ class TestFares:
         """예약을 넘기는 실수가 속성 오류로 드러나면 원인을 알기 어렵습니다."""
         # given
         client, session = korail
-        reservation = client.reservations.all()[0]
+        reservation = (client.reservations.all())[0]
 
         # when & then
         with pytest.raises(TypeError, match="Reservation"):
@@ -1059,7 +1169,7 @@ class TestFares:
         """빈 값을 이어 붙이면 칸 수가 맞지 않는 요청이 됩니다. 넘겨짚지 않고 막습니다."""
         # given
         client, session = korail
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when & then
         with pytest.raises(ValueError, match="seat_attribute"):
@@ -1074,7 +1184,7 @@ class TestFares:
     def test_no_fares_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
         # given
         client, _ = make_korail({**FARE_ROUTES, "fare": body})
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         fares = client.trains.fares(train)
@@ -1085,7 +1195,7 @@ class TestFares:
     def test_server_refusal_becomes_an_exception(self, make_korail) -> None:
         # given
         client, _ = make_korail({**FARE_ROUTES, "fare": {"strResult": "FAIL", "h_msg_cd": "P058"}})
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when & then
         with pytest.raises(NeedToLoginError):
@@ -1098,7 +1208,7 @@ class TestSeatCars:
     def test_lists_the_cars_of_a_train(self, make_korail) -> None:
         # given
         client, _ = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         cars = client.trains.cars(train)
@@ -1113,7 +1223,7 @@ class TestSeatCars:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1124,7 +1234,7 @@ class TestSeatCars:
     def test_sends_the_train_as_the_app_does(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1143,7 +1253,7 @@ class TestSeatCars:
     def test_sends_the_section_by_run_order(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1156,7 +1266,7 @@ class TestSeatCars:
         """앱은 이 요청을 폼 본문으로 보냅니다(@FormUrlEncoded)."""
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1167,7 +1277,7 @@ class TestSeatCars:
     def test_is_not_signed(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1179,7 +1289,7 @@ class TestSeatCars:
         """앱은 값이 빈 필드를 싣지 않습니다. 빈 문자열로 보내면 다른 요청이 됩니다."""
         # given
         client, session = korail
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train)
@@ -1191,7 +1301,7 @@ class TestSeatCars:
     def test_special_class_is_sent_as_its_code(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train, seat_class=SeatClass.SPECIAL)
@@ -1202,7 +1312,7 @@ class TestSeatCars:
     def test_headcount_adds_every_passenger(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.trains.cars(train, passengers=[AdultPassenger(2), ChildPassenger(1)])
@@ -1218,7 +1328,7 @@ class TestSeatCars:
     def test_no_cars_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
         # given
         client, _ = make_korail({**SEAT_ROUTES, "seat_cars": body})
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         cars = client.trains.cars(train)
@@ -1229,7 +1339,7 @@ class TestSeatCars:
     def test_server_refusal_becomes_an_exception(self, make_korail) -> None:
         # given
         client, _ = make_korail({**SEAT_ROUTES, "seat_cars": {"strResult": "FAIL", "h_msg_cd": "P058"}})
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when & then
         with pytest.raises(NeedToLoginError):
@@ -1242,8 +1352,8 @@ class TestCarSeats:
     def test_lists_the_seats_of_a_car(self, make_korail) -> None:
         # given
         client, _ = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         seats = client.trains.seats(train, car)
@@ -1257,8 +1367,8 @@ class TestCarSeats:
     def test_seats_know_their_car(self, make_korail) -> None:
         # given
         client, _ = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         seats = client.trains.seats(train, car)
@@ -1275,8 +1385,8 @@ class TestCarSeats:
         """좌석 응답에는 객실이 없습니다. 좌석 지정 예매가 다시 묻지 않도록 조회 조건을 붙여 둡니다."""
         # given
         client, _ = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         seats = client.trains.seats(train, car, seat_class=asked)
@@ -1288,8 +1398,8 @@ class TestCarSeats:
         """폼 필드 이름이 바뀌면 서버가 조용히 빈 결과를 줍니다."""
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car)
@@ -1300,8 +1410,8 @@ class TestCarSeats:
     def test_sends_the_car_and_train_as_the_app_does(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car, passengers=[AdultPassenger(2)])
@@ -1322,8 +1432,8 @@ class TestCarSeats:
         """호차 번호는 "0003" 처럼 0 이 채워져 옵니다. 숫자로 바꿨다 되돌리면 그 모양을 잃습니다."""
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car)
@@ -1337,8 +1447,8 @@ class TestCarSeats:
         special_car = {**CAR_INFO, "h_psrm_cl_cd": "2", "h_psrm_cl_nm": "특실"}
         routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [special_car]}}}
         client, session = make_korail(routes)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train, seat_class=SeatClass.SPECIAL)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train, seat_class=SeatClass.SPECIAL))[0]
 
         # when
         client.trains.seats(train, car)
@@ -1352,8 +1462,8 @@ class TestCarSeats:
         classless_car = {**CAR_INFO, "h_psrm_cl_cd": ""}
         routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [classless_car]}}}
         client, session = make_korail(routes)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when & then
         with pytest.raises(ValueError, match="seat_class"):
@@ -1365,8 +1475,8 @@ class TestCarSeats:
         classless_car = {**CAR_INFO, "h_psrm_cl_cd": ""}
         routes = {**SEAT_ROUTES, "seat_cars": {**SEAT_CARS_PAYLOAD, "srcar_infos": {"srcar_info": [classless_car]}}}
         client, session = make_korail(routes)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car, seat_class=SeatClass.GENERAL)
@@ -1377,8 +1487,8 @@ class TestCarSeats:
     def test_explicit_seat_class_overrides_the_car(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car, seat_class=SeatClass.SPECIAL)
@@ -1389,8 +1499,8 @@ class TestCarSeats:
     def test_goes_in_the_form_body_not_the_query(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car)
@@ -1401,8 +1511,8 @@ class TestCarSeats:
     def test_is_not_signed(self, make_korail) -> None:
         # given
         client, session = make_korail(SEAT_ROUTES)
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         client.trains.seats(train, car)
@@ -1418,8 +1528,8 @@ class TestCarSeats:
     def test_no_seats_is_an_empty_list(self, make_korail, body: dict[str, object]) -> None:
         # given
         client, _ = make_korail({**SEAT_ROUTES, "seat_map": body})
-        train = client.trains.search("서울", "부산")[0]
-        car = client.trains.cars(train)[0]
+        train = (client.trains.search("서울", "부산"))[0]
+        car = (client.trains.cars(train))[0]
 
         # when
         seats = client.trains.seats(train, car)
@@ -1513,7 +1623,7 @@ class TestReservations:
         client, _ = korail
 
         # when
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # then
         assert isinstance(rsv, Reservation)
@@ -1524,7 +1634,7 @@ class TestReservations:
         client, _ = korail
 
         # when
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # then
         assert rsv.train.dep_name == "서울"
@@ -1535,7 +1645,7 @@ class TestReservations:
         client, _ = korail
 
         # when
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # then
         assert rsv.train.dep_date == rsv.train.arr_date == "20260401"
@@ -1583,7 +1693,7 @@ class TestReservations:
         """예매 한 번에 남의 예약 좌석까지 긁어 오면 계정 제재로 가는 길입니다."""
         # given
         client, session = make_korail({**MANY_RESERVATIONS_ROUTES, **SEARCHABLE_ROUTES})
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         reservation = client.reservations.create(train)
@@ -1622,7 +1732,7 @@ class TestReservations:
     def test_create_returns_the_reservation(self, korail) -> None:
         # given
         client, _ = korail
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         reservation = client.reservations.create(train)
@@ -1633,7 +1743,7 @@ class TestReservations:
     def test_create_sends_passenger_blocks(self, korail) -> None:
         # given
         client, session = korail
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when
         client.reservations.create(train, passengers=[AdultPassenger(2), ChildPassenger(1)])
@@ -1654,7 +1764,7 @@ class TestReservations:
                 "myreservationview": NO_RESULTS,
             }
         )
-        train = client.trains.search("서울", "부산")[0]
+        train = (client.trains.search("서울", "부산"))[0]
 
         # when & then
         with pytest.raises(KorailError, match="9999999999"):
@@ -1671,7 +1781,7 @@ class TestReservations:
     def test_cancel_sends_journey_identifiers(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.cancel(rsv)
@@ -1686,7 +1796,7 @@ class TestPayment:
     def test_pay_sends_card_fields(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.pay(rsv, Card("1234567812345678", "12", "900101", "2812"))
@@ -1703,7 +1813,7 @@ class TestPayment:
     def test_individual_card_is_the_default(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.pay(rsv, Card("1234", "12", "900101", "2812"))
@@ -1714,7 +1824,7 @@ class TestPayment:
     def test_corporate_card_flag(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.pay(rsv, Card("1234", "12", "1234567890", "2812", is_corporate=True))
@@ -1725,7 +1835,7 @@ class TestPayment:
     def test_installment_defaults_to_lump_sum(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.pay(rsv, Card("1234", "12", "900101", "2812"))
@@ -1736,7 +1846,7 @@ class TestPayment:
     def test_installment_is_forwarded(self, korail) -> None:
         # given
         client, session = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when
         client.reservations.pay(rsv, Card("1234", "12", "900101", "2812", installment=3))
@@ -1755,7 +1865,7 @@ class TestPayment:
     def test_rejects_wrong_card_type(self, korail) -> None:
         # given
         client, _ = korail
-        rsv = client.reservations.all()[0]
+        rsv = (client.reservations.all())[0]
 
         # when & then
         with pytest.raises(TypeError, match="Card"):
@@ -1779,7 +1889,7 @@ class TestTickets:
     def test_ticket_is_immutable_and_complete(self, korail) -> None:
         # given
         client, _ = korail
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when & then
         assert isinstance(ticket, Ticket)
@@ -1791,7 +1901,7 @@ class TestTickets:
         client, _ = korail
 
         # when
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # then
         assert ticket.train.train_no == "101"
@@ -1802,7 +1912,7 @@ class TestTickets:
         client, _ = korail
 
         # when
-        ticket_no = client.tickets.all()[0].ticket_no
+        ticket_no = (client.tickets.all())[0].ticket_no
 
         # then
         assert ticket_no == "0000-20260320-0001-1111"
@@ -1896,7 +2006,7 @@ class TestTickets:
     def test_refund_fee_reads_amounts(self, korail) -> None:
         # given
         client, _ = korail
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when
         fee = client.tickets.refund_fee(ticket)
@@ -1915,7 +2025,7 @@ class TestTickets:
                 "refund_commission": {**REFUND_FEE_PAYLOAD, "prg_psb_flg": ""},
             }
         )
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when
         fee = client.tickets.refund_fee(ticket)
@@ -1941,7 +2051,7 @@ class TestTickets:
     def test_refund_fee_form_fields(self, korail, field: str, expected: str) -> None:
         # given
         client, session = korail
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when
         client.tickets.refund_fee(ticket)
@@ -1952,7 +2062,7 @@ class TestTickets:
     def test_refund_fee_does_not_call_refund(self, korail) -> None:
         # given
         client, session = korail
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when
         client.tickets.refund_fee(ticket)
@@ -1963,7 +2073,7 @@ class TestTickets:
     def test_refund_uses_train_reference(self, korail) -> None:
         # given
         client, session = korail
-        ticket = client.tickets.all()[0]
+        ticket = (client.tickets.all())[0]
 
         # when
         client.tickets.refund(ticket)
