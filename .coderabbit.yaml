@@ -62,15 +62,16 @@ reviews:
 
     - path: "src/pykorail/auth/**"
       instructions: >-
-        DynaPath 서명 코드입니다. `dynapath.py` 의 인코딩 테이블과 상수
-        (`_TABLE`·`_RADIX`·`_MODULUS`·`_CHUNK`)가 바뀌었다면 최우선 지적입니다 —
-        서버가 로그인을 거부하게 됩니다.
+        DynaPath 서명 코드입니다. 7.0.10 토큰은 네이티브 서명이 아니라 `201` 프리픽스 +
+        임의 영숫자라, 서버가 프리픽스만 검사하는 동안만 유효합니다 — 근거는
+        `docs/protocol-evidence-7.0.10.json`. `TOKEN_PREFIX`·`DYNAPATH_LOGIN_OP`나 본문
+        길이(로그인 324/그 외 222)·문자셋을 바꿨다면 최우선 지적입니다.
 
-        User-Agent 와 서명(`os=`·`dm=`)은 **같은 기기를 가리켜야** 합니다.
-        `device_profile` 이 둘을 함께 바꾸는데, 한쪽만 바뀌는 변경은 불일치 자체가
-        탐지 신호가 됩니다.
+        토큰에는 기기 신원이 실리지 않습니다. 프로파일이 바꾸는 wire 값은 NetFunnel
+        Dalvik UA 뿐입니다.
 
-        `tests/test_dynapath.py` 의 골든 테스트가 함께 통과하는지 확인하세요.
+        `tests/test_dynapath.py` 의 속성 검증(프리픽스·길이·문자셋·요청별 변화)이 함께
+        통과하는지 확인하세요.
 
     - path: "src/pykorail/_async/**"
       instructions: >-

@@ -58,11 +58,11 @@ uv run ruff format && uv run ruff check --fix && uv run ty check && uv run pytes
 - `test_no_control_flow_statements[...]` — 테스트에 `if`/`for`/`while` **문**이
   들어갔습니다. `@pytest.mark.parametrize` 로 펼치거나, 컴프리헨션으로 위반 목록을
   만들어 `== []` 와 비교하세요. 이 규칙은 `tests/test_style.py` 가 강제합니다.
-- `test_first_token_matches_v1_0_3_golden` — 새 엔진의 첫 토큰이 고정된 회귀
-  기준과 달라졌습니다. APK 근거·직렬화·시간 초기화를 확인하세요. 실패만으로 서버
-  거부를 단정하거나, 테스트를 통과시키려고 골든을 자동 갱신하지 마세요.
-  `test_fresh_engines_match_for_same_inputs`와 역디코더 검증도 함께 확인합니다.
-  같은 엔진의 재호출은 `rt` 이력이 바뀌므로 서로 다른 토큰이 나올 수 있습니다.
+- `tests/test_dynapath.py` 실패 — `201` 프리픽스·길이(로그인 324/그 외 222)·문자셋
+  같은 토큰 속성이 바뀌었습니다. 서명 상수(`TOKEN_PREFIX`·`DYNAPATH_LOGIN_OP`)를
+  확인하세요. 실패만으로 서버 거부를 단정하거나 기대값을 자동 갱신하지 마세요.
+  이 토큰은 네이티브 서명이 아니라 `201` + 임의 영숫자입니다 —
+  `docs/protocol-evidence-7.0.10.json`.
 - `예상하지 못한 요청: <url>` — `FakeSession` 에 라우트가 없습니다. 픽스처의
   `routes` dict 에 해당 엔드포인트를 추가하세요.
 

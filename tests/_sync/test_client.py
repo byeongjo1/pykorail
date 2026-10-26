@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import base64
 from unittest.mock import Mock
-from urllib.parse import parse_qsl
 
 import pytest
 from Crypto.Cipher import AES
@@ -19,7 +18,6 @@ from pykorail.constants import API_ENDPOINTS
 from pykorail.device import DEVICE_PROFILES
 from pykorail.exceptions import AccessRestrictedError, LoginFailedError, PasswordChangeRequiredError
 from tests._sync.conftest import Reply
-from tests.dynapath_decoder import decode_token
 from tests.payloads import (
     ACCESS_RESTRICTED,
     CIPHER_PAYLOAD,
@@ -44,12 +42,10 @@ class TestConstruction:
 
         # when
         restored, _ = make_korail({}, android_id=saved_id)
-        headers, _ = restored._api.sign(API_ENDPOINTS["login"], include_sid=False)
 
         # then
         assert restored.device_profile is None
         assert restored.android_id == saved_id
-        assert dict(parse_qsl(decode_token(headers["x-dynapath-m-token"])[1]))["di"] == saved_id
 
     @pytest.mark.parametrize("android_id", ["", "bad", "A" * 16])
     def test_bad_android_id_fails_before_session_creation(self, monkeypatch, android_id: str) -> None:
@@ -167,7 +163,7 @@ class TestLogin:
         client.login("me@example.com", "pw")
 
         # then
-        assert session.kwargs_for("login")["data"]["AppVersion"] == "7.0.8"
+        assert session.kwargs_for("login")["data"]["AppVersion"] == "7.0.10"
 
     def test_successful_login_populates_account(self, make_korail) -> None:
         # given
@@ -534,8 +530,6 @@ class TestLoggedInFactory:
 
         # then
         assert client.android_id == "0123456789abcdef"
-        token = session.kwargs_for("login")["headers"]["x-dynapath-m-token"]
-        assert dict(parse_qsl(decode_token(token)[1]))["di"] == client.android_id
 
     def test_returns_logged_in_client(self, monkeypatch, make_korail) -> None:
         # given
@@ -610,7 +604,7 @@ class TestLifecycle:
 
 
 class TestDeviceProfile:
-    def test_profile_sets_signature_but_keeps_app_user_agent(self, monkeypatch) -> None:
+    def test_profile_is_kept_but_does_not_change_app_user_agent(self, monkeypatch) -> None:
         # given
         from pykorail.device import DeviceProfile
         from tests._sync.conftest import FakeSession
@@ -635,9 +629,6 @@ class TestDeviceProfile:
 
         # then
         assert captured["User-Agent"] == "korailtalk"
-        engine = client._api._signer._engine
-        assert engine.device_model == "SM-G991N"
-        assert engine.os_version == "15"
         assert client._api._signer._device_id == profile.android_id
 
     def test_default_client_uses_same_app_user_agent(self, monkeypatch) -> None:

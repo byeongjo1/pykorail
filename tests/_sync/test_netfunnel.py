@@ -10,8 +10,7 @@ from typing import Any
 
 import pytest
 
-from pykorail._sync.netfunnel import NETFUNNEL_URL, NetFunnelHelper
-from pykorail.auth.dynapath import DynaPathMasterEngine
+from pykorail._sync.netfunnel import DEFAULT_DEVICE_PROFILE_ID, NETFUNNEL_URL, NetFunnelHelper
 from pykorail.device import PROFILES_BY_ID, dalvik_user_agent
 from pykorail.exceptions import NetFunnelError
 from pykorail.options import NetFunnelAction
@@ -475,8 +474,9 @@ class TestWireGolden:
         # then
         assert captured["User-Agent"] == dalvik_user_agent(profile)
 
-    def test_default_user_agent_matches_dynapath_defaults(self, monkeypatch) -> None:
+    def test_default_user_agent_uses_the_default_profile(self, monkeypatch) -> None:
         # given
+        profile = PROFILES_BY_ID[DEFAULT_DEVICE_PROFILE_ID]
         captured: dict[str, str] = {}
 
         def fake_create_session(headers: dict[str, str]) -> FakeSession:
@@ -489,8 +489,7 @@ class TestWireGolden:
         NetFunnelHelper().run()
 
         # then
-        assert f"Android {DynaPathMasterEngine.OS_VERSION}" in captured["User-Agent"]
-        assert DynaPathMasterEngine.DEVICE_MODEL in captured["User-Agent"]
+        assert captured["User-Agent"] == dalvik_user_agent(profile)
 
     def test_requests_match_the_golden(self, make_helper, monkeypatch) -> None:
         # given
