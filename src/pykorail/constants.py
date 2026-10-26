@@ -74,9 +74,17 @@ API_ENDPOINTS: Final[dict[str, str]] = {
 DEVICE: Final = "AD"
 APP_VERSION: Final = "250722001"
 #: API의 Version과 별개인 공식 앱 표시 버전입니다.
-APP_DISPLAY_VERSION: Final = "7.0.8"
+#: 서버가 이 값으로 최신 버전을 강제하므로(AppVersion), 오래된 값은 -8204로 거절됩니다.
+APP_DISPLAY_VERSION: Final = "7.0.10"
 API_KEY: Final = "korail1234567890"
 SID_KEY: Final = b"2485dd54d9deaa36"
+
+# --------------------------------------------------------------- DynaPath (7.0.10)
+#: 7.0.10 ``x-dynapath-m-token`` 의 버전 프리픽스. 서버는 이 프리픽스로 버전을 가릅니다.
+TOKEN_PREFIX: Final = "201"
+#: 네이티브 ``declarationToken`` 의 로그인 op id(``kr.scripters.dynapath.sdk.android.a.J0``).
+#: 요청 바인딩이 실리는 유일한 op 이며, 그래서 로그인 토큰만 더 깁니다(실측 324 vs 222).
+DYNAPATH_LOGIN_OP: Final = 288904575606514493
 
 #: curl_cffi의 기존 TLS 타깃입니다. HTTP 헤더는 앱 기준으로 별도 지정합니다.
 IMPERSONATE: Final = "chrome131_android"

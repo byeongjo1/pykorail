@@ -1,0 +1,95 @@
+{
+  "app": {
+    "package": "com.korail.talk",
+    "version": "7.0.10",
+    "apk_source": "Korail+_7.0.10_APKPure.xapk (split: base.apk + split_config.arm64_v8a.apk)",
+    "native_library": "lib/arm64-v8a/libdp_ffi_android.so",
+    "native_library_sha256": "a884a4971dda8b7a1b05f90d331631ea95f65028dc51aba55e2699ac90ed7129",
+    "native_build_tag": "dp-prime-v2/01/5adc5bfb",
+    "dynapath_sdk_version": "2.0.1"
+  },
+  "scope": "사용자가 허가한 본인 계정의 실서버 1회 호출 및 Android 에뮬레이터 관측. 예약·결제 검증 아님. 2026-10-26 프리픽스-only 확인도 읽기 전용(seatMovie.ScheduleView)으로만 했다.",
+  "status": "부분 — 프로토콜 판정과 프리픽스-only 수용은 확인, 네이티브 본문 알고리즘은 미복원",
+  "verified_findings": [
+    {
+      "id": "wire-token-version",
+      "statement": "7.0.8(2026-10-03·10-16 캡처)의 x-dynapath-m-token 은 'bEeEP…'(v1, 커스텀 알파벳)이고, 7.0.10(2026-10-21 캡처)은 '201…'로 시작하고 [0-9A-Za-z] 62-기호 집합만 쓰는 문자열(v2)이다('62'는 문자 집합 크기이지 길이가 아니다 — 실측 길이는 token-format 참조). 헤더 이름은 동일하다.",
+      "basis": "capture/korail-20261003-090701.mitm, korail-20261016-153631.mitm, korail-20261021-180110.mitm"
+    },
+    {
+      "id": "protected-path-rejects-v1",
+      "statement": "보호 엔드포인트(seatMovie.ScheduleView)는 v1 토큰으로 -8204(앱 버전 업데이트 요구)를 반환하고, 토큰을 빼면 MACRO ERROR, v2 토큰(7.0.10 앱)은 200이다. 로그인(login.Login)은 v1로도 200이다.",
+      "basis": "실서버 1회 검증(2026-10-22, 본인 계정): v1 토큰 검색=-8204, 토큰 제거=MACRO, 로그인=200."
+    },
+    {
+      "id": "forged-token-rejected",
+      "statement": "형식이 깨진 v1 토큰(bEeEP+임의문자)을 보내면 403 -1406(매크로/미허가 도구)로 거절된다. 이는 v1 프리픽스에 대한 것으로, 서버가 **모든** 토큰을 암호 검증한다는 뜻은 아니다 — v2(201) 프리픽스는 본문을 보지 않는다(아래 v2-prefix-only).",
+      "basis": "실서버 1회 검증(2026-10-22)."
+    },
+    {
+      "id": "v2-prefix-only",
+      "statement": "v2 경로는 토큰 본문을 검증하지 않는다. '201'+임의 280자 hex(명백한 위조)도, 심지어 문자열 '201' 단독(3글자)도 seatMovie.ScheduleView 에서 HTTP 200 정상처리(열차 10편)였다. 같은 시각 v1 위조(bEeEP+320자 hex)는 403 -1406 로 재현됐다. 즉 서버의 검사는 암호 본문이 아니라 버전 프리픽스(201) 수준이다.",
+      "basis": "사용자 보고(2026-10-26, 본인 계정, 읽기 전용 ScheduleView): 토큰 없음=200 MACRO ERROR, bEeEP+랜덤=403 -1406, 201+랜덤=200, '201'=200. 원시 아티팩트(scratchpad/prefix_evidence.json)는 이 저장소에 포함하지 않는다."
+    },
+    {
+      "id": "app-version-gate",
+      "statement": "로그인 폼의 AppVersion 이 앱 버전 게이트로 쓰인다. 7.0.10 앱 캡처도 Version=250722001 은 그대로이고 AppVersion 만 7.0.10 이다.",
+      "basis": "capture/korail-20261021-180110.mitm 의 login.Login 폼."
+    },
+    {
+      "id": "admit-and-enroll",
+      "statement": "/dp_mobile/v2/enroll/admit 요청 242B·응답 185B(verdict=ADMIT, challengeId, challenge 32B base64url, backoff, serverTimeMs). /dp_mobile/v2/enroll 은 chain(DER X.509 3장)과 함께 EMULATOR 에서 두 번 모두 REJECTED/CHAIN_INVALID 였다. preId 는 32B→base64url(43자).",
+      "basis": "capture/korail-20261021-180110.mitm. enroll 거절에도 declaration 토큰으로 login·ScheduleView 는 200."
+    },
+    {
+      "id": "request-signing-two-flow",
+      "statement": "per-request 토큰 경로는 둘이다. (1) 기본 declarationToken — 네이티브, device facts+nonce+ts, 하드웨어 키 없음. 지금 보호 경로가 받아주는 '201' 토큰이 이것이다. (2) 서버가 enroll/admit 챌린지를 설치하면(J0.A!=null) beginRequest→clientDataHash→AndroidKeyStore 하드웨어 키(StrongBox/TEE, alias 'dynapath.v2.signing') 서명→finishRequest 로 전환된다 — method·URL·body·ts·서버 nonce 를 하드웨어 바인딩하는 챌린지-응답이다. pykorail 과 에뮬레이터는 (1)만 낼 수 있고 (2)는 재현하지 못한다.",
+      "basis": "jadx 7.0.10: a/J0.java(a(long,byte[],C3870a1)=declarationToken; 335-360줄 beginRequest/clientDataHash/E0.a→C3904m.b/finishRequest), a/C3904m.java(setAttestationChallenge·setIsStrongBoxBacked·getCertificateChain), a/N.java(챌린지 A/B 설치), a/E0.java·a/D0.java(서명 위임), DynaPathNative(beginRequest/clientDataHash/finishRequest)."
+    },
+    {
+      "id": "declaration-token-is-native",
+      "statement": "x-dynapath-m-token 값은 Java 가 아니라 네이티브 DynaPathNative.declarationToken(인자 16개)에서만 만들어진다. envelope 문자열('2!v=2&es=&st=Android&sv=2.0.1&ai=&os=&dm=&iid=&mf=&bd=&sl=')은 Java 의 실패 폴백(tokenFor 실패 시 J0.b())에만 평문으로 존재하고, 정상 토큰은 네이티브에서 난독화/인코딩된다.",
+      "basis": "jadx 7.0.10: DynaPathNative.java, a/J0.java, a/M.java, sdk/android/a/D.java(base64url)."
+    },
+    {
+      "id": "token-format",
+      "statement": "v2 토큰은 '201' + [0-9A-Za-z](62-기호 집합) 본문이다. '62'는 문자 집합 크기이지 길이가 아니다. 실측 길이는 login.Login=324자, seatMovie.ScheduleView=222자다.",
+      "basis": "capture/korail-20261021-180110.mitm 의 x-dynapath-m-token 헤더(324·222 두 값, 토큰 전문 문자셋이 [0-9A-Za-z] 뿐임을 확인)."
+    },
+    {
+      "id": "declaration-token-inputs",
+      "statement": "네이티브 declarationToken 의 16-인자는 차례로 op_id(long), request_binding(byte[], 로그인 op 에서만), app_id, sdk_version('2.0.1'), release, model, android_id, sdk_int(int), manufacturer, board, strongbox(int), key_level, error_code, null, nonce(4바이트), ts(long) 다. 값은 C3907n.a() 가 Build.* 와 config 에서 모으고 J0.a() 가 조립한다.",
+      "basis": "jadx 7.0.10: DynaPathNative.declarationToken, a/J0.java(a(), a(long,byte[],C3870a1)), a/C3907n.java(a()), a/F.java."
+    },
+    {
+      "id": "seal-self-hash-matches",
+      "statement": "libdp_ffi_android.so 끝 0x70 바이트는 'DPSEAL01' 트레일러이고, +8 필드(0x6baa0)까지의 SHA-256 이 트레일러 +16 의 32B 값과 정확히 일치한다. 즉 씰은 원본 .so 바이트에 자기일관적이다.",
+      "basis": "로컬 계산: SHA-256(so[0:0x6baa0]) == 924a0e8f9a5a776e62f67a893d3095c8ee5434d7759ccac8f34999d627842c04."
+    },
+    {
+      "id": "anti-tamper-blocks-oracle",
+      "statement": "원본 앱은 루팅 userdebug 이미지에서 DynaPath 를 초기화하지 않고(ns=0, dynapath.* 파일 미생성), Frida 로 계측하면 initializeRuntime 이 0(실패)을 반환한다. 하니스 APK 로 원본 .so 를 직접 호출하면 initializeRuntime=false 이다. AppSuit 는 클래스를 메모리 DEX 로 올린다.",
+      "basis": "Android 14/15 google_apis(userdebug, adb root) + frida-server 16.5.9/17.24.3 관측; 커스텀 하니스 APK(base+arm64 split, 자체 서명)."
+    },
+    {
+      "id": "offline-emulator-partial",
+      "statement": "Unicorn 기반 오프디바이스 실행에서 JNI 계층은 실제 값과 일치한다(JNI_OnLoad=0x10006, abiVersion=3, envelopeBuildTag='dp-prime-v2/01/5adc5bfb', secretsFingerprint='5adc5bfb'). 그러나 declarationToken 은 초기화가 만들어내는 비밀을 요구하고, 초기화는 /proc/self/maps 파서가 빈 루트를 내 FUN_00122b20+0x7a4(0x230c4)에서 실패한다.",
+      "basis": "dynapath-oracle/emulator.py; 실패 좌표 0x230c4, Once 캐시 .bss 0x40077270([0]=1,[8]=0,[0x18]=0), 파서는 0x482/0x18/0x28 오프셋의 커스텀 B-tree/아레나."
+    }
+  ],
+  "limits": [
+    "v2 declarationToken 생성 알고리즘·키는 복원하지 못했다. 사설 네이티브 난독화 + 안티템퍼(씰·메모리 DEX) 때문이다.",
+    "v1 위조 토큰은 403 으로 거절되지만, v2(201) 프리픽스는 본문을 보지 않는다(위 v2-prefix-only). 네이티브 알고리즘을 재현하지 않고 '201' 프리픽스만 맞춘 토큰도 통하는 것은 그 때문이다. 다만 이 방식은 Flow 2(하드웨어 서명 챌린지-응답, 위 request-signing-two-flow)를 재현하지 못한다 — 코레일이 지금은 소프트웨어 declaration 토큰도 통과시키지만, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않는다.",
+    "v2-prefix-only 판정의 원시 아티팩트는 저장소에 없다(사용자 보고만). 관측된 두 변형('201' 3글자, '201'+280자 hex)은 길이·문자셋이 모두 달랐는데도 200 이라 그 경로에서는 본문을 읽지 않는 것으로 보이지만, ScheduleView 한 경로·두 변형뿐이다 — 예약·결제 등 다른 엔드포인트나 헤더 존재를 넘어선 별도 검사는 확인하지 않았다.",
+    "로그인 경로에서 '201' 토큰의 실서버 수용은 이 저장소에 관측이 없다(로그인은 v1 로 200, 보호 경로는 201 로 200 이 관측됨). 7.0.10 앱이 로그인에 201 을 쓰므로 수용될 것으로 보나, 독립 관측은 아니다.",
+    "emulator.py 의 maps 파서 입력 형식은 미확정이다(커스텀 아레나 컨테이너).",
+    "enroll 의 EC attestation 체인 재현은 범위 밖이며 에뮬레이터에서는 CHAIN_INVALID 였다.",
+    "원본 캡처·계정·기기 ID 는 저장소에 포함하지 않는다."
+  ],
+  "actionable": [
+    "로그인·기본 조회는 AppVersion=7.0.10 상향으로 정상화(커밋 1aec51a).",
+    "보호 경로는 '201' 프리픽스 + 62자 영숫자 본문이면 통과한다(v2-prefix-only). 본문 알고리즘을 재현할 필요가 없다.",
+    "클라이언트(auth/dynapath.py)는 네이티브 서명을 재현하지 않는다: '201' + 임의 영숫자(로그인 324/그 외 222자)를 낸다. 서버가 지금은 declaration(소프트웨어) 토큰을 통과시키기 때문이다. 단 이 클라이언트는 Flow 2(하드웨어 서명)를 재현하지 못하므로, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않는다.",
+    "네이티브 본문까지 재현하려면 단일 타깃: /proc/self/maps 파서(커스텀 B-tree/아레나)를 만족시켜 initializeRuntime 을 성공시키고 declarationToken 입력↔출력 오라클을 확보한다."
+  ]
+}

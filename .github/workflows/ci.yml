@@ -162,7 +162,7 @@ jobs:
       contents: write
     steps:
       - name: 커버리지 총계 내려받기
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: coverage-py${{ env.BADGE_PYTHON }}
 

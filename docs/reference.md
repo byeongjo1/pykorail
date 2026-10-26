@@ -1001,8 +1001,9 @@ korail.trains.search("서울역", "부산")
 
 ## 기기 프로파일
 
-User-Agent는 프로파일 유무와 무관하게 `korailtalk`입니다. 프로파일은
-DynaPath의 기기 ID(`di`)·OS(`os`)·모델(`dm`)을 지정합니다.
+User-Agent는 프로파일 유무와 무관하게 `korailtalk`입니다. 프로파일은 NetFunnel 대기열의
+Dalvik User-Agent(모델·OS·빌드ID)를 정합니다. DynaPath 토큰에는 기기 신원이 실리지
+않고(서버가 `201` 프리픽스만 검사) `android_id` 는 저장·복원용으로만 쓰입니다.
 
 ```python
 from pykorail import Korail

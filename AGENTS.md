@@ -126,15 +126,23 @@ exceptions/ · constants.py · options.py · device/   ← 누구나 의존 가�
 지문·서명을 교차 검증하므로, 아래를 건드리면 조용히 로그인이 막힙니다.
 
 - **작동하는 값을 근거 없이 바꾸지 마세요**: `constants.py` 의 `USER_AGENT`,
-  `APP_VERSION`, `API_KEY`, `SID_KEY`, `IMPERSONATE`, 그리고
-  `auth/dynapath.py` 의 인코딩 테이블·상수(`_TABLE`, `_RADIX`, `_MODULUS`, `_CHUNK`).
+  `APP_VERSION`, `APP_DISPLAY_VERSION`, `API_KEY`, `SID_KEY`, `IMPERSONATE` 와
+  `TOKEN_PREFIX`·`DYNAPATH_LOGIN_OP`.
+- **DynaPath 토큰은 네이티브 서명이 아닙니다.** 7.0.10 의 실제 토큰은 네이티브
+  `libdp_ffi_android.so` 에서만 만들어지고 그 알고리즘은 미복원입니다.
+  `auth/dynapath.py` 는 서버가 `201` 프리픽스만 검사하는 동안만 통하는
+  `201` + 임의 영숫자 토큰을 냅니다 — 근거·한계·네이티브 입력 계약은
+  `docs/protocol-evidence-7.0.10.json`. 이 방식은 per-request 토큰의 Flow 2
+  (하드웨어 서명 챌린지-응답: beginRequest→clientDataHash→StrongBox/TEE 서명→
+  finishRequest)를 재현하지 못합니다 — 코레일이 지금은 소프트웨어 declaration
+  토큰도 통과시키지만, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않습니다.
 - **폼 필드를 정리하지 마세요.** 빈 문자열로 보내는 필드(`txtChgFlg2` 등)나 조회
   엔드포인트만 `Key` 없이 빈 `Sid` 를 보내는 것은 앱 동작을 그대로 옮긴 것입니다.
   "안 쓰는 것 같으니 지운다" 는 회귀입니다.
-- **UA는 앱 공통값, 기기 신원은 프로파일입니다.** User-Agent는 프로파일과 무관하게
-  `korailtalk` 입니다. 프로파일은 DynaPath의 `di`·`os`·`dm`만 지정합니다.
-  공유 하드코딩 ID를 재도입하지 마세요. 기본 생성 ID도 `Korail.android_id`로 저장하고
-  `Korail(android_id=...)`로 복원할 수 있어야 합니다.
+- **DynaPath 토큰에는 기기 신원이 실리지 않습니다.** 서버가 프리픽스만 보므로
+  프로파일이 실제로 바꾸는 wire 값은 NetFunnel 대기열의 Dalvik User-Agent
+  (모델·OS·빌드ID)뿐입니다. `Korail.android_id` 는 저장·복원 계약을 위해 남아 있고
+  요청 값에는 들어가지 않습니다. 공유 하드코딩 ID를 재도입하지 마세요.
 - **암호화 형태를 "고치지" 마세요.** 이중 base64, `Sid` 끝의 개행, 키를 IV 로 재사용
   하는 AES-CBC — 전부 서버가 그 모양을 기대합니다.
   로그인 비밀번호는 안쪽 NO_WRAP(2), 바깥쪽 URL_SAFE(8)의 76자 LF 래핑을 지킵니다.
