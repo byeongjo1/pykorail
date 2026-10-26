@@ -35,7 +35,9 @@ from tests.payloads import (
     MANY_RESERVATIONS_PAYLOAD,
     NEARBY_SEARCH_PAYLOAD,
     NO_RESULTS,
+    OK,
     REFUND_FEE_PAYLOAD,
+    RESERVATION_LIST_PAYLOAD,
     RESERVE_OK,
     SEARCH_PAYLOAD,
     SEAT_CARS_PAYLOAD,
@@ -1809,6 +1811,29 @@ class TestPayment:
         assert data["hidCrdVlidTrm1"] == "2812"
         assert data["hidMnsStlAmt1"] == "119600"
         assert data["hidWctNo"] == "0143"
+
+    @pytest.mark.parametrize(
+        "detail",
+        [{**SEAT_DETAIL_PAYLOAD, "h_wct_no": ""}, NO_RESULTS],
+        ids=["blank-window", "no-journeys"],
+    )
+    def test_missing_window_number_is_sent_as_empty(self, make_korail, detail: dict[str, object]) -> None:
+        """발매창구 번호가 없으면 결제 폼에는 빈 문자열이 실립니다 — 요청 모양을 바꾸지 않습니다."""
+        # given
+        client, session = make_korail(
+            {
+                "myreservationview": RESERVATION_LIST_PAYLOAD,
+                "myreservationlist": detail,
+                "pay": OK,
+            }
+        )
+        rsv = (client.reservations.all())[0]
+
+        # when
+        client.reservations.pay(rsv, Card("1234567812345678", "12", "900101", "2812"))
+
+        # then
+        assert session.kwargs_for("pay")["data"]["hidWctNo"] == ""
 
     def test_individual_card_is_the_default(self, korail) -> None:
         # given

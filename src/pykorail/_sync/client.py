@@ -35,6 +35,7 @@ from pykorail.constants import (
 from pykorail.crypto import encrypt_password
 from pykorail.device.android_id import validate_android_id
 from pykorail.exceptions import LoginFailedError, PasswordChangeRequiredError
+from pykorail.models.parsing import optional_text, text
 from pykorail.transport import create_session
 
 if TYPE_CHECKING:
@@ -275,7 +276,7 @@ class Korail:
             # 없이 P058 로 거절됩니다(열차 조회는 그대로입니다). 성공 여부보다 **먼저** 봐야
             # 합니다.
             account.clear()
-            raise PasswordChangeRequiredError(payload.get("h_msg_txt"), payload.get("h_msg_cd"))
+            raise PasswordChangeRequiredError(optional_text(payload, "h_msg_txt"), optional_text(payload, "h_msg_cd"))
 
         if payload.get("strResult") == "SUCC" and payload.get("strMbCrdNo"):
             # 프로필 필드는 날로 인덱싱하지 않습니다. 서버가 이름·이메일·번호 중
@@ -285,18 +286,18 @@ class Korail:
             # 받았으니 로그인은 성공한 것입니다 — 표시용 필드가 비었다고 실패로
             # 뒤집으면 서버는 로그인 상태인데 클라이언트만 아니라고 우기게 됩니다.
             account.logined = True
-            account.membership_number = payload["strMbCrdNo"]
-            account.name = payload.get("strCustNm")
-            account.email = payload.get("strEmailAdr")
-            account.phone_number = payload.get("strCpNo")
+            account.membership_number = text(payload, "strMbCrdNo")
+            account.name = optional_text(payload, "strCustNm")
+            account.email = optional_text(payload, "strEmailAdr")
+            account.phone_number = optional_text(payload, "strCpNo")
             return
 
         account.clear()
         # 서버가 준 이유를 그대로 전달합니다 — "비밀번호가 틀렸습니다" 와 "휴면
         # 계정입니다" 는 사용자가 해야 할 일이 다른데, 하나로 뭉개면 알 길이 없습니다.
         raise LoginFailedError(
-            payload.get("h_msg_txt") or "아이디 또는 비밀번호가 올바르지 않습니다",
-            payload.get("h_msg_cd"),
+            optional_text(payload, "h_msg_txt") or "아이디 또는 비밀번호가 올바르지 않습니다",
+            optional_text(payload, "h_msg_cd"),
         )
 
     def logout(self) -> None:

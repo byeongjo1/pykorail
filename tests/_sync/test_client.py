@@ -179,6 +179,30 @@ class TestLogin:
         assert client.email == "me@example.com"
         assert client.phone_number == "010-1234-5678"
 
+    def test_blank_profile_fields_read_as_none(self, make_korail) -> None:
+        """빈 문자열로 온 프로필 칸은 없는 칸과 같은 ``None`` 입니다."""
+        # given
+        body = {**LOGIN_OK, "strCustNm": "", "strEmailAdr": "", "strCpNo": ""}
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": body})
+
+        # when
+        client.login("me@example.com", "pw")
+
+        # then
+        assert (client.name, client.email, client.phone_number) == (None, None, None)
+
+    def test_blank_failure_code_reads_as_none(self, make_korail) -> None:
+        # given
+        body = {"strResult": "FAIL", "h_msg_cd": "", "h_msg_txt": ""}
+        client, _ = make_korail({"code": CIPHER_PAYLOAD, "login": body})
+
+        # when
+        with pytest.raises(LoginFailedError) as raised:
+            client.login("me@example.com", "pw")
+
+        # then
+        assert (raised.value.code, raised.value.msg) == (None, "아이디 또는 비밀번호가 올바르지 않습니다")
+
     def test_rejected_credentials_raise(self, make_korail) -> None:
         """반환값으로 알려 주면 확인하지 않은 호출자가 로그인 없이 진행합니다."""
         # given
