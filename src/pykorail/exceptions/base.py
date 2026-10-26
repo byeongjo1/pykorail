@@ -27,15 +27,16 @@ class KorailError(PykorailError):
     codes: frozenset[str] = frozenset()
 
     #: 서버가 메시지를 주지 않았을 때(또는 ``msg`` 를 생략했을 때) 쓸 사람이 읽을 설명.
-    default_msg: str | None = None
+    default_msg: str = "코레일 요청이 실패했습니다"
 
     def __init__(self, msg: str | None = None, code: str | None = None) -> None:
-        self.msg = msg if msg is not None else self.default_msg
-        self.code = code
+        # 빈 문자열도 "메시지 없음" 으로 봅니다 — 빈 칸을 그대로 찍으면 "(P999)" 만 남습니다.
+        self.msg = msg or self.default_msg
+        self.code = code or None
         super().__init__(self.msg)
 
     def __str__(self) -> str:
         # 코드가 없으면 괄호를 찍지 않습니다 — "(None)" 은 원인이 없다는 말을 거짓으로 꾸밉니다.
-        if self.code is None:
-            return "" if self.msg is None else self.msg
+        if not self.code:
+            return self.msg
         return f"{self.msg} ({self.code})"
