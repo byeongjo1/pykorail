@@ -18,48 +18,39 @@ model: sonnet
 ```
 USER_AGENT   = "korailtalk"
 APP_VERSION  = "250722001"
-APP_DISPLAY_VERSION = "7.0.8"
+APP_DISPLAY_VERSION = "7.0.10"
 API_KEY      = "korail1234567890"
 SID_KEY      = b"2485dd54d9deaa36"
 IMPERSONATE  = "chrome131_android"
 DEVICE       = "AD"
+TOKEN_PREFIX = "201"
+DYNAPATH_LOGIN_OP = 288904575606514493
 ```
-`src/pykorail/auth/dynapath.py` 에서:
+`src/pykorail/auth/dynapath.py` 에서 토큰의 형식이 그대로인지 확인하세요:
 ```
-_TABLE   = "3FE9jgRD4KdCyuawklqGJYmvfMn15P7US8XbxeLQtWT6OicBAopINs2Vh0HZrz"
-_RADIX, _MODULUS, _CHUNK = 161, 30, 2
-APP_ID   = "com.korail.talk"
-AS_VALUE = "[38ff229cb34c7dda8e28220a2d750cce]"
-SDK_VERSION = "v1.0.3"
+TOKEN_PREFIX = "201"          # 로그인 324 / 그 외 222자
+_ALPHABET    = 0-9A-Za-z (62자 영숫자)
 ```
-`AS_VALUE`는 인코딩 전 원문입니다. 토큰 본문의 `as`에는
-`%5B38ff229cb34c7dda8e28220a2d750cce%5D`가 한 번만 인코딩되어 들어가야 합니다.
-원문 상수와 직렬화 결과를 혼동하거나 `%255B`처럼 이중 인코딩하지 않았는지 확인하세요.
+7.0.10 토큰은 네이티브 서명이 아니라 **`201` + 임의 영숫자** 입니다 — 서버가
+프리픽스만 보는 동안만 유효합니다(근거:
+`docs/protocol-evidence-7.0.10.json`). `TOKEN_PREFIX`·`DYNAPATH_LOGIN_OP`·본문
+길이·문자셋이 바뀌었다면 최우선으로 지적하세요.
 
-근거 없는 차이는 **심각으로 보고**하세요. 의도한 앱 버전 대응이라면 APK 근거와
-골든·직렬화 테스트를 함께 검토하고, 변경 자체만으로 서버 거부를 단정하지 마세요.
+근거 없는 차이는 **심각으로 보고**하세요. 의도한 대응이라면 APK·실서버 근거를 함께
+검토하고, 변경 자체만으로 서버 거부를 단정하지 마세요.
 
-### 2. 서명 골든 벡터
+### 2. 토큰 속성
 ```bash
-uv run pytest
+uv run pytest tests/test_dynapath.py
 ```
-`test_first_token_matches_v1_0_3_golden`이 생성 시각·기기 ID·요청 시각·논스를
-고정한 **새 엔진의 첫 토큰 전체**를 문자열 리터럴로 비교합니다. 이는 7.0.8 분석을
-반영한 Python 구현의 회귀 기준이며, 원본 SDK 실행 산출물이나 서버 수용 증거는 아닙니다.
-실패하면 전체 출력이 바뀐 이유를 조사하세요. 통과시키려고 골든을 자동 갱신하지 마세요.
+`tests/test_dynapath.py` 가 `201` 프리픽스·62자 영숫자 문자셋·길이(로그인 324/
+그 외 222)·요청별 변화를 검증합니다. 실제 네이티브 서명이나 서버 수용 증거는
+아닙니다 — 한계는 `docs/protocol-evidence-7.0.10.json` 에 있습니다. 실패하면
+바뀐 이유를 조사하세요. 통과시키려고 기대값을 자동 갱신하지 마세요.
 
-독립 역디코더 검증도 유지합니다. `test_fresh_engines_match_for_same_inputs`는
-동일하게 초기화한 엔진 둘을 비교합니다. 같은 엔진의 재호출은 `rt` 이력이 바뀌므로
-토큰도 달라질 수 있으며, `test_repeated_input_updates_same_engine_history`가 검증합니다.
-첫 간격, 최근 5개 FIFO, 반복 `rt`, 시계 역행, URL 인코딩 경계값도 확인하세요.
-
-실제 서명 경로는 `generate_token_with_timestamp`가 잠금 안에서 시각을 읽고
-토큰과 함께 반환해야 합니다. `RequestSigner`는 반환된 시각으로 `Sid`를 만듭니다.
-`test_reversed_lock_entry_preserves_timestamp_history_and_sid`가 두 스레드의 잠금
-진입 순서를 뒤집어 시간 이력과 Sid의 일치를 검증합니다. 명시적 시각을 받는
-`generate_token`은 기존 API 호환·고정 입력 검증용이며 호출자가 시각 순서를 책임집니다.
-이 엔진 잠금만으로 HTTP 세션 전체의 스레드 안전성까지 보장하지는 않습니다.
-커버리지 하한을 유지하기 위해 위 명령은 전체 스위트를 실행합니다.
+`RequestSigner` 는 엔진이 반환한 시각으로 `Sid` 를 만듭니다
+(`test_sid_uses_the_token_timestamp`). 토큰 본문은 요청마다 새로 뽑히므로 서로
+다릅니다. 커버리지 하한을 유지하기 위해 전체 스위트도 실행하세요.
 
 ### 3. 암호화 형태
 `src/pykorail/crypto.py` 확인:
@@ -115,8 +106,9 @@ print(sorted((S.calls[-1][2].get('params') or {}).keys()))
   `tests/payloads.py` 의 `NETFUNNEL_HEADERS_GOLDEN`·`NETFUNNEL_CALLS_GOLDEN` 이 지킵니다.
 
 ### 5. 앱 UA와 프로파일 신원
-User-Agent는 프로파일 유무와 무관하게 `korailtalk`입니다. 프로파일은 DynaPath의
-`di`·`os`·`dm`을 지정합니다. 공유 하드코딩 ID를 요구하지 마세요. 생성된 ID는
+User-Agent는 프로파일 유무와 무관하게 `korailtalk`입니다. DynaPath 토큰에는 기기
+신원이 실리지 않습니다. 프로파일이 바꾸는 wire 값은 NetFunnel Dalvik UA
+(모델·OS·빌드ID)뿐입니다. 공유 하드코딩 ID를 요구하지 마세요. 생성된 ID는
 `Korail.android_id`와 `Korail(android_id=...)`로 저장·복원 가능해야 합니다.
 `tests/_async/test_client.py::TestDeviceProfile`(과 생성된 `tests/_sync`)과 로그인 폼
 전체 골든 테스트를 확인하세요.
