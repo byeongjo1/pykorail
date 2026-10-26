@@ -35,4 +35,7 @@ class KorailError(PykorailError):
         super().__init__(self.msg)
 
     def __str__(self) -> str:
+        # 코드가 없으면 괄호를 찍지 않습니다 — "(None)" 은 원인이 없다는 말을 거짓으로 꾸밉니다.
+        if self.code is None:
+            return "" if self.msg is None else self.msg
         return f"{self.msg} ({self.code})"

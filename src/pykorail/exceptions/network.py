@@ -46,7 +46,8 @@ class HttpStatusError(TransportError):
         super().__init__(status_code, msg, code)
 
     def __str__(self) -> str:
-        return f"HTTP {self.status_code}: {self.msg or '응답 본문 없음'} ({self.code})"
+        head = f"HTTP {self.status_code}: {self.msg or '응답 본문 없음'}"
+        return f"{head} ({self.code})" if self.code else head
 
 
 class AccessRestrictedError(HttpStatusError):
@@ -64,4 +65,6 @@ class AccessRestrictedError(HttpStatusError):
     def __str__(self) -> str:
         # 상태 코드보다 원인을 앞에 둡니다 — 200 으로 왔을 때 "HTTP 200" 으로 시작하면
         # 로그만 봐서는 성공한 응답처럼 읽힙니다.
-        return f"이용제한: {self.msg or '안내 없음'} (HTTP {self.status_code}, {self.code})"
+        # 코드가 없으면 뒤의 ", code" 를 빼서 "None" 이 찍히지 않게 합니다.
+        detail = f"HTTP {self.status_code}, {self.code}" if self.code else f"HTTP {self.status_code}"
+        return f"이용제한: {self.msg or '안내 없음'} ({detail})"
