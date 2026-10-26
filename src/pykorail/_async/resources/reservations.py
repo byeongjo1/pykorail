@@ -10,7 +10,7 @@ from pykorail.constants import API_ENDPOINTS
 from pykorail.exceptions import KorailError, NoResultsError
 from pykorail.models.car import CarSeat
 from pykorail.models.card import Card
-from pykorail.models.parsing import records, text
+from pykorail.models.parsing import optional_text, records, text
 from pykorail.models.passenger import AdultPassenger, Passenger
 from pykorail.models.reservation import Reservation
 from pykorail.models.seat import Seat
@@ -158,7 +158,7 @@ class AsyncReservationResource(AsyncResource):
         except NoResultsError:
             return [], None
 
-        return records(payload, "jrny_infos", "jrny_info"), payload.get("h_wct_no")
+        return records(payload, "jrny_infos", "jrny_info"), optional_text(payload, "h_wct_no")
 
     @staticmethod
     def _seats_of(journeys: list[dict[str, Any]], entry: dict[str, Any]) -> tuple[Seat, ...]:
@@ -536,7 +536,11 @@ class AsyncReservationResource(AsyncResource):
             data={
                 **self._api.base_payload(),
                 "hidPnrNo": reservation.rsv_id,
-                "hidWctNo": reservation.wct_no,
+                # 발매창구 번호는 파싱 단계에서 빈 값을 ``None`` 으로 둡니다. 폼에는 서버가 빈 값을
+                # 줬을 때와 같은 ``""`` 를 실어 보냅니다. 여정을 못 찾아 ``None`` 이던 경우에는
+                # 예전에 urlencode 가 ``None`` 을 문자열 ``"None"`` 으로 실었는데, 그것은 값이
+                # 아니라 파이썬 표현이라 빈 값으로 바꿨습니다 (PR 설명 참고).
+                "hidWctNo": reservation.wct_no or "",
                 "hidTmpJobSqno1": "000000",
                 "hidTmpJobSqno2": "000000",
                 "hidRsvChgNo": "000",

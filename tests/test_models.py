@@ -29,7 +29,7 @@ from pykorail.models import (
     parse_transfers,
     train_info_of,
 )
-from pykorail.models.parsing import amount, records
+from pykorail.models.parsing import amount, optional_text, records
 from pykorail.models.schedule import WAITING_NOT_APPLICABLE, format_duration
 from tests.payloads import (
     CAR_INFO,
@@ -357,6 +357,16 @@ class TestTicket:
         assert isinstance(ticket.train, Train)
         assert not isinstance(ticket, Train)
         assert ticket.train.train_no == "101"
+
+    def test_empty_seat_range_end_is_none(self) -> None:
+        # given
+        raw = {**TICKET_RAW, "h_seat_no_end": ""}
+
+        # when
+        ticket = Ticket.from_response(raw)
+
+        # then
+        assert ticket.seat_no_end is None
 
     def test_seat_no_override_clears_the_range(self) -> None:
         # when
@@ -809,6 +819,25 @@ class TestFare:
 
         # then
         assert fare == Fare(train_no="", journey_no="", seat_class_name="", price=0, charge=0, total=0)
+
+
+class TestOptionalText:
+    @pytest.mark.parametrize(
+        ("data", "expected"),
+        [
+            ({"k": "5B"}, "5B"),
+            ({"k": ""}, None),
+            ({"k": None}, None),
+            ({}, None),
+        ],
+        ids=["value", "empty", "null", "missing"],
+    )
+    def test_blank_and_missing_read_as_none(self, data: dict[str, object], expected: str | None) -> None:
+        # when
+        value = optional_text(data, "k")
+
+        # then
+        assert value == expected
 
 
 class TestAmount:

@@ -15,6 +15,15 @@ def text(data: dict[str, Any], key: str, default: str = "") -> str:
     return default if value is None else str(value)
 
 
+def optional_text(data: dict[str, Any], key: str) -> str | None:
+    """문자열 필드를 읽되, 없거나 빈 값이면 ``None`` 입니다.
+
+    "값이 없음" 을 ``None`` 하나로 통일합니다. 빈 문자열을 그대로 두면 ``str | None``
+    선언이 거짓이 되고, 호출부가 ``""`` 와 ``None`` 을 따로 처리하게 됩니다.
+    """
+    return text(data, key) or None
+
+
 def integer(data: dict[str, Any], key: str, default: int = 0) -> int:
     """정수 필드를 읽습니다. 없거나 숫자로 못 읽으면 ``default``."""
     return _to_int(data.get(key), default)

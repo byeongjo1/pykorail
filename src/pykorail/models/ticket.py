@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from pykorail.models.parsing import integer, text
+from pykorail.models.parsing import integer, optional_text, text
 from pykorail.models.schedule import Train
 
 if TYPE_CHECKING:
@@ -75,7 +75,7 @@ class Ticket:
         return cls(
             train=Train.from_response(data),
             seat_no=resolved_seat,
-            seat_no_end=text(data, "h_seat_no_end") if seat_no is None else None,
+            seat_no_end=optional_text(data, "h_seat_no_end") if seat_no is None else None,
             seat_no_count=integer(data, "h_seat_cnt"),
             car_no=text(data, "h_srcar_no"),
             buyer_name=text(data, "h_buy_ps_nm"),
