@@ -152,6 +152,18 @@ class TestAdd:
         with pytest.raises(TypeError, match="different group keys"):
             AdultPassenger(1, card="A") + AdultPassenger(1, card="B")
 
+    def test_group_key_error_hides_card_details(self) -> None:
+        # given
+        first = AdultPassenger(1, card="A", card_no="1234567812345678", card_pw="9012")
+        second = AdultPassenger(1, card="B", card_no="8765432187654321", card_pw="3456")
+
+        # when
+        with pytest.raises(TypeError) as raised:
+            first + second
+
+        # then
+        assert [s for s in ("1234567812345678", "9012", "8765432187654321", "3456") if s in str(raised.value)] == []
+
 
 class TestFormSerialization:
     def test_get_dict_uses_index(self) -> None:

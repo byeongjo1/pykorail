@@ -74,8 +74,10 @@ class Passenger:
         if not isinstance(other, self.__class__):
             raise TypeError("Cannot add different passenger types")
         if self.group_key() != other.group_key():
+            # 그룹 키에는 카드번호·비밀번호가 들어 있어 메시지에 싣지 않습니다.
             raise TypeError(
-                f"Cannot add passengers with different group keys: {self.group_key()} vs {other.group_key()}"
+                f"Cannot add passengers with different group keys: "
+                f"type {self.typecode!r} discount {self.discount_type!r} vs discount {other.discount_type!r}"
             )
         return self.__class__(
             count=self.count + other.count,
