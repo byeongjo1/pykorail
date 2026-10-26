@@ -104,10 +104,10 @@ def test_tracking_id_stays_out_of_the_message() -> None:
 @pytest.mark.parametrize(
     ("body", "expected"),
     [
-        ("<html>502 Bad Gateway</html>", "HTTP 502: <html>502 Bad Gateway</html> (None)"),
-        ("", "HTTP 502: 응답 본문 없음 (None)"),
-        ("[1, 2]", "HTTP 502: 응답 본문 없음 (None)"),
-        ("{}", "HTTP 502: 응답 본문 없음 (None)"),
+        ("<html>502 Bad Gateway</html>", "HTTP 502: <html>502 Bad Gateway</html>"),
+        ("", "HTTP 502: 응답 본문 없음"),
+        ("[1, 2]", "HTTP 502: 응답 본문 없음"),
+        ("{}", "HTTP 502: 응답 본문 없음"),
     ],
 )
 def test_unrecognized_error_bodies_still_report_the_status(body: str, expected: str) -> None:

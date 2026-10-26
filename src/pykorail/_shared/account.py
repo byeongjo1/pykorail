@@ -6,7 +6,7 @@ I/O 가 없는 데이터라 한쪽 계층에 두면 다른 쪽이 그쪽을 impo
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -18,13 +18,16 @@ class Account:
 
     로그인·로그아웃이 값을 바꾸므로 ``frozen`` 으로 두지 않습니다. 응답 모델의 불변
     규칙(AGENTS.md §2-3)은 서버 응답을 해석한 결과에만 적용됩니다.
+
+    개인정보(회원번호·이름·이메일·전화번호)는 ``repr`` 에 싣지 않습니다 — 로그나
+    트레이스백에 ``print(client.account)`` 처럼 찍혀도 새지 않아야 합니다.
     """
 
     logined: bool = False
-    membership_number: str | None = None
-    name: str | None = None
-    email: str | None = None
-    phone_number: str | None = None
+    membership_number: str | None = field(default=None, repr=False)
+    name: str | None = field(default=None, repr=False)
+    email: str | None = field(default=None, repr=False)
+    phone_number: str | None = field(default=None, repr=False)
 
     def clear(self) -> None:
         self.logined = False

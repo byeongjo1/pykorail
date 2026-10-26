@@ -182,3 +182,40 @@ class TestMessages:
 
         # then
         assert error.msg == "직접 지정"
+
+
+class TestRenderingWithoutCode:
+    @pytest.mark.parametrize(
+        ("error", "expected"),
+        [
+            (KorailError("서버 메시지", code="P999"), "서버 메시지 (P999)"),
+            (KorailError("서버 메시지"), "서버 메시지"),
+            (KorailError(), "코레일 요청이 실패했습니다"),
+            (KorailError("서버 메시지", code=""), "서버 메시지"),
+            (KorailError(code="P999"), "코레일 요청이 실패했습니다 (P999)"),
+            (KorailError("", code="P999"), "코레일 요청이 실패했습니다 (P999)"),
+            (HttpStatusError(403, "차단", "-2000"), "HTTP 403: 차단 (-2000)"),
+            (HttpStatusError(500), "HTTP 500: 응답 본문 없음"),
+            (AccessRestrictedError(403, "막힘", "-2000"), "이용제한: 막힘 (HTTP 403, -2000)"),
+            (AccessRestrictedError(403, "막힘"), "이용제한: 막힘 (HTTP 403)"),
+        ],
+        ids=[
+            "korail-with-code",
+            "korail-without-code",
+            "korail-without-message",
+            "korail-empty-code",
+            "korail-code-without-message",
+            "korail-blank-message-with-code",
+            "http-with-code",
+            "http-without-code",
+            "restricted-with-code",
+            "restricted-without-code",
+        ],
+    )
+    def test_str_omits_the_missing_code(self, error: Exception, expected: str) -> None:
+        # when
+        rendered = str(error)
+
+        # then
+        assert rendered == expected
+        assert "None" not in rendered
