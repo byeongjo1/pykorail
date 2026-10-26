@@ -132,7 +132,10 @@ exceptions/ · constants.py · options.py · device/   ← 누구나 의존 가�
   `libdp_ffi_android.so` 에서만 만들어지고 그 알고리즘은 미복원입니다.
   `auth/dynapath.py` 는 서버가 `201` 프리픽스만 검사하는 동안만 통하는
   `201` + 임의 영숫자 토큰을 냅니다 — 근거·한계·네이티브 입력 계약은
-  `docs/protocol-evidence-7.0.10.json`. 서버가 본문 무결성 검증을 켜면 무효입니다.
+  `docs/protocol-evidence-7.0.10.json`. 이 방식은 per-request 토큰의 Flow 2
+  (하드웨어 서명 챌린지-응답: beginRequest→clientDataHash→StrongBox/TEE 서명→
+  finishRequest)를 재현하지 못합니다 — 코레일이 지금은 소프트웨어 declaration
+  토큰도 통과시키지만, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않습니다.
 - **폼 필드를 정리하지 마세요.** 빈 문자열로 보내는 필드(`txtChgFlg2` 등)나 조회
   엔드포인트만 `Key` 없이 빈 `Sid` 를 보내는 것은 앱 동작을 그대로 옮긴 것입니다.
   "안 쓰는 것 같으니 지운다" 는 회귀입니다.

@@ -13,7 +13,7 @@
   "verified_findings": [
     {
       "id": "wire-token-version",
-      "statement": "7.0.8(2026-10-03·10-16 캡처)의 x-dynapath-m-token 은 'bEeEP…'(v1, 커스텀 알파벳)이고, 7.0.10(2026-10-21 캡처)은 '201…'로 시작하는 62자 영숫자 문자열(v2)이다. 헤더 이름은 동일하다.",
+      "statement": "7.0.8(2026-10-03·10-16 캡처)의 x-dynapath-m-token 은 'bEeEP…'(v1, 커스텀 알파벳)이고, 7.0.10(2026-10-21 캡처)은 '201…'로 시작하고 [0-9A-Za-z] 62-기호 집합만 쓰는 문자열(v2)이다('62'는 문자 집합 크기이지 길이가 아니다 — 실측 길이는 token-format 참조). 헤더 이름은 동일하다.",
       "basis": "capture/korail-20261003-090701.mitm, korail-20261016-153631.mitm, korail-20261021-180110.mitm"
     },
     {
@@ -42,13 +42,18 @@
       "basis": "capture/korail-20261021-180110.mitm. enroll 거절에도 declaration 토큰으로 login·ScheduleView 는 200."
     },
     {
+      "id": "request-signing-two-flow",
+      "statement": "per-request 토큰 경로는 둘이다. (1) 기본 declarationToken — 네이티브, device facts+nonce+ts, 하드웨어 키 없음. 지금 보호 경로가 받아주는 '201' 토큰이 이것이다. (2) 서버가 enroll/admit 챌린지를 설치하면(J0.A!=null) beginRequest→clientDataHash→AndroidKeyStore 하드웨어 키(StrongBox/TEE, alias 'dynapath.v2.signing') 서명→finishRequest 로 전환된다 — method·URL·body·ts·서버 nonce 를 하드웨어 바인딩하는 챌린지-응답이다. pykorail 과 에뮬레이터는 (1)만 낼 수 있고 (2)는 재현하지 못한다.",
+      "basis": "jadx 7.0.10: a/J0.java(a(long,byte[],C3870a1)=declarationToken; 335-360줄 beginRequest/clientDataHash/E0.a→C3904m.b/finishRequest), a/C3904m.java(setAttestationChallenge·setIsStrongBoxBacked·getCertificateChain), a/N.java(챌린지 A/B 설치), a/E0.java·a/D0.java(서명 위임), DynaPathNative(beginRequest/clientDataHash/finishRequest)."
+    },
+    {
       "id": "declaration-token-is-native",
       "statement": "x-dynapath-m-token 값은 Java 가 아니라 네이티브 DynaPathNative.declarationToken(인자 16개)에서만 만들어진다. envelope 문자열('2!v=2&es=&st=Android&sv=2.0.1&ai=&os=&dm=&iid=&mf=&bd=&sl=')은 Java 의 실패 폴백(tokenFor 실패 시 J0.b())에만 평문으로 존재하고, 정상 토큰은 네이티브에서 난독화/인코딩된다.",
       "basis": "jadx 7.0.10: DynaPathNative.java, a/J0.java, a/M.java, sdk/android/a/D.java(base64url)."
     },
     {
       "id": "token-format",
-      "statement": "v2 토큰은 '201' + 62자 영숫자([0-9A-Za-z])다. 실측 길이는 login.Login=324자, seatMovie.ScheduleView=222자다.",
+      "statement": "v2 토큰은 '201' + [0-9A-Za-z](62-기호 집합) 본문이다. '62'는 문자 집합 크기이지 길이가 아니다. 실측 길이는 login.Login=324자, seatMovie.ScheduleView=222자다.",
       "basis": "capture/korail-20261021-180110.mitm 의 x-dynapath-m-token 헤더(324·222 두 값, 토큰 전문 문자셋이 [0-9A-Za-z] 뿐임을 확인)."
     },
     {
@@ -74,7 +79,7 @@
   ],
   "limits": [
     "v2 declarationToken 생성 알고리즘·키는 복원하지 못했다. 사설 네이티브 난독화 + 안티템퍼(씰·메모리 DEX) 때문이다.",
-    "v1 위조 토큰은 403 으로 거절되지만, v2(201) 프리픽스는 본문을 보지 않는다(위 v2-prefix-only). 네이티브 알고리즘을 재현하지 않고 '201' 프리픽스만 맞춘 토큰도 통하는 것은 그 때문이며, 서버가 본문 무결성 검증을 켜면 무효가 된다.",
+    "v1 위조 토큰은 403 으로 거절되지만, v2(201) 프리픽스는 본문을 보지 않는다(위 v2-prefix-only). 네이티브 알고리즘을 재현하지 않고 '201' 프리픽스만 맞춘 토큰도 통하는 것은 그 때문이다. 다만 이 방식은 Flow 2(하드웨어 서명 챌린지-응답, 위 request-signing-two-flow)를 재현하지 못한다 — 코레일이 지금은 소프트웨어 declaration 토큰도 통과시키지만, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않는다.",
     "v2-prefix-only 판정의 원시 아티팩트는 저장소에 없다(사용자 보고만). 관측된 두 변형('201' 3글자, '201'+280자 hex)은 길이·문자셋이 모두 달랐는데도 200 이라 그 경로에서는 본문을 읽지 않는 것으로 보이지만, ScheduleView 한 경로·두 변형뿐이다 — 예약·결제 등 다른 엔드포인트나 헤더 존재를 넘어선 별도 검사는 확인하지 않았다.",
     "로그인 경로에서 '201' 토큰의 실서버 수용은 이 저장소에 관측이 없다(로그인은 v1 로 200, 보호 경로는 201 로 200 이 관측됨). 7.0.10 앱이 로그인에 201 을 쓰므로 수용될 것으로 보나, 독립 관측은 아니다.",
     "emulator.py 의 maps 파서 입력 형식은 미확정이다(커스텀 아레나 컨테이너).",
@@ -84,7 +89,7 @@
   "actionable": [
     "로그인·기본 조회는 AppVersion=7.0.10 상향으로 정상화(커밋 1aec51a).",
     "보호 경로는 '201' 프리픽스 + 62자 영숫자 본문이면 통과한다(v2-prefix-only). 본문 알고리즘을 재현할 필요가 없다.",
-    "클라이언트(auth/dynapath.py)는 네이티브 서명을 재현하지 않는다: '201' + 임의 영숫자(로그인 324/그 외 222자)를 낸다. 서버가 본문을 검증하지 않기 때문이며, 검증이 켜지면 무효가 된다.",
+    "클라이언트(auth/dynapath.py)는 네이티브 서명을 재현하지 않는다: '201' + 임의 영숫자(로그인 324/그 외 222자)를 낸다. 서버가 지금은 declaration(소프트웨어) 토큰을 통과시키기 때문이다. 단 이 클라이언트는 Flow 2(하드웨어 서명)를 재현하지 못하므로, 서버가 하드웨어 서명 토큰만 허용하는 때가 오면 동작하지 않는다.",
     "네이티브 본문까지 재현하려면 단일 타깃: /proc/self/maps 파서(커스텀 B-tree/아레나)를 만족시켜 initializeRuntime 을 성공시키고 declarationToken 입력↔출력 오라클을 확보한다."
   ]
 }
