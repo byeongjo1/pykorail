@@ -15,7 +15,7 @@ from pykorail.models.car import CarSeat
 from pykorail.models.card import Card
 from pykorail.models.parsing import optional_text, records, text
 from pykorail.models.passenger import AdultPassenger, Passenger
-from pykorail.models.reservation import Reservation
+from pykorail.models.reservation import Reservation, SeatDetail
 from pykorail.models.seat import Seat
 from pykorail.models.transfer import Transfer
 from pykorail.options import ReserveOption, SeatClass
@@ -138,18 +138,20 @@ class ReservationResource(Resource):
             "rsv_chg_no": text(first, "h_rsv_chg_no") or "000",
         }
 
-    def seats(self, rsv_id: str | None = None) -> tuple[list[Seat], str | None]:
+    def seats(self, rsv_id: str | None = None) -> SeatDetail:
         """예약의 좌석 상세와 발매창구 번호(``wct_no``).
 
-        조회 결과가 없으면 ``([], None)`` 을 돌려줍니다 — 호출부가 항상 튜플로
-        풀 수 있어야 하므로 실패해도 모양을 유지합니다. 환승 예약처럼 여정이 여럿이면
+        조회 결과가 없으면 빈 좌석 목록과 ``None`` 을 담은 :class:`~pykorail.models.reservation.SeatDetail`
+        을 돌려줍니다 — 호출부가 항상 풀 수 있는 모양을 유지합니다. 환승 예약처럼 여정이 여럿이면
         **첫 여정의 좌석**입니다 — 구간별 좌석은 :meth:`all` 이 돌려주는 예약에 있습니다.
         """
         journeys, wct_no = self._journeys(rsv_id)
         if not journeys:
-            return [], wct_no
+            return SeatDetail([], wct_no)
 
-        return [Seat.from_response(seat) for seat in records(journeys[0], "seat_infos", "seat_info")], wct_no
+        return SeatDetail(
+            [Seat.from_response(seat) for seat in records(journeys[0], "seat_infos", "seat_info")], wct_no
+        )
 
     def _journeys(self, rsv_id: str | None) -> tuple[list[dict[str, Any]], str | None]:
         """예약 상세의 여정들과 발매창구 번호. 결과가 없으면 ``([], None)``."""
@@ -350,7 +352,7 @@ class ReservationResource(Resource):
             seat_class: 두 구간에 함께 적용할 객실. 기본은 일반실.
 
         Returns:
-            타는 순서대로 **구간마다 하나씩**, 예약 둘. 둘은 예약번호(``rsv_id``)가 같고,
+            타는 순서대로 **구간마다 하나씩**, 예약 둘. 둘은 예약번호(``pnr_no``)가 같고,
             각자 그 구간의 열차와 좌석을 가집니다. :meth:`cancel` 에는 둘 중 어느 것을
             넘겨도 **예약 전체**가 취소됩니다. ``price`` 는 구간의 금액이 아니라 예약
             전체의 금액이라 둘을 더하면 안 됩니다.
@@ -542,7 +544,7 @@ class ReservationResource(Resource):
             API_ENDPOINTS["pay"],
             data={
                 **self._api.base_payload(),
-                "hidPnrNo": reservation.rsv_id,
+                "hidPnrNo": reservation.pnr_no,
                 # 발매창구 번호는 파싱 단계에서 빈 값을 ``None`` 으로 둡니다. 폼에는 서버가 빈 값을
                 # 줬을 때와 같은 ``""`` 를 실어 보냅니다. 여정을 못 찾아 ``None`` 이던 경우에는
                 # 예전에 urlencode 가 ``None`` 을 문자열 ``"None"`` 으로 실었는데, 그것은 값이
@@ -583,7 +585,7 @@ class ReservationResource(Resource):
             API_ENDPOINTS["cancel"],
             data={
                 **self._api.base_payload(),
-                "txtPnrNo": reservation.rsv_id,
+                "txtPnrNo": reservation.pnr_no,
                 "txtJrnySqno": reservation.journey_no,
                 "txtJrnyCnt": reservation.journey_cnt,
                 "hidRsvChgNo": reservation.rsv_chg_no,
