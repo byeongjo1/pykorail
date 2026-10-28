@@ -18,6 +18,7 @@ Korail(
     validate_stations: bool = True,
     *,
     android_id: str | None = None,
+    dynapath_engine: DynaPathEngine | None = None,
 )
 ```
 
@@ -27,15 +28,16 @@ Korail(
 | `device_profile` | DynaPath의 ID·모델·OS를 지정합니다. UA는 `korailtalk`으로 고정됩니다. [기기 프로파일](#기기-프로파일) 참조. |
 | `android_id` | 저장한 ID를 복원합니다. 프로파일에도 ID가 있으면 같은 값이어야 하며, 형식 오류·충돌 시 세션 생성 전에 `ValueError`가 납니다. |
 | `validate_stations` | `trains.search` 전에 역 이름을 검증합니다. 끄면 역 마스터 조회 1회를 아낍니다. |
+| `dynapath_engine` | DynaPath 토큰을 만드는 엔진입니다. 기본은 `DeclarationDynaPathEngine`(프로파일이 있으면 `from_profile`). 실기기 `board`·attestation 값이 필요하면 `DynaPathEngine` 계약을 만족하는 엔진을 넘기세요. [기기 프로파일](#기기-프로파일) 참조. |
 
 | 메서드 · 속성 | 반환 | 설명 |
 | --- | --- | --- |
-| `Korail.logged_in(id, pw, *, verbose=False, device_profile=None, validate_stations=True, android_id=None)` | `Korail` | 생성 + 로그인. ID 검증 오류는 `ValueError`, 로그인 실패는 `LoginFailedError`입니다. |
+| `Korail.logged_in(id, pw, *, verbose=False, device_profile=None, validate_stations=True, android_id=None, dynapath_engine=None)` | `Korail` | 생성 + 로그인. ID 검증 오류는 `ValueError`, 로그인 실패는 `LoginFailedError`입니다. |
 | `android_id` | `str` | 실제 서명에 사용하는 ID. 프로파일이 없어도 저장할 수 있는 읽기 전용 속성입니다. |
 | `login(korail_id, korail_pw)` | `None` | 실패는 전부 `LoginFailedError`. 성공 여부를 반환하지 않습니다. 비밀번호 변경 안내에 걸린 계정은 그 하위 타입 [`PasswordChangeRequiredError`](#예외). |
 | `logout()` | `None` | **서버 세션만** 끊습니다. HTTP 연결은 살아 있어 재로그인할 수 있습니다. |
 | `close()` | `None` | HTTP 연결 정리. `with` 문이 자동 호출합니다. |
-| `logined` | `bool` | 로그인 상태. |
+| `is_logged_in` | `bool` | 로그인 상태. (옛 이름 `logined` 는 0.7.0 에서 지웁니다) |
 | `membership_number` · `name` · `email` · `phone_number` | `str \| None` | 로그인 후 채워집니다. |
 
 `korail_id` 는 형태로 자동 판별합니다 — 이메일 · 휴대폰(`010-1234-5678`) · 회원번호.
@@ -334,7 +336,7 @@ run_dates() -> list[RunDate]
 netfunnel_action_for(run_dates: Sequence[RunDate], departure: date | datetime) -> NetFunnelActionCode
 ```
 
-`RunDate` 는 하루입니다. `run_date`(운행일 `YYYYMMDD`)와 성수기 여부
+`RunDate` 는 하루입니다. `run_date`(운행일 `YYYYMMDD`)와 `day`(그 날짜), 성수기 여부
 (`is_peak_season`) 말고는 앱의 원문 필드명을 snake_case 로 옮긴 값들(`day_dv_cd` ·
 `hldy_dv_cd` · `sale_dd_dv_cd` 와 `o_trn_op_flg` … `x_trn_op_flg`)이라 뜻을 지어 붙이지
 않았습니다. 플래그는 `"Y"` · `"N"` 외에 빈 문자열일 수 있어 불리언이 아닙니다.
@@ -365,7 +367,7 @@ aid = netfunnel_action_for(calendar, departure)
 | `create(train, passengers=None, option=GENERAL_FIRST)` | `Reservation` | 예매. 좌석이 없고 예약대기가 열려 있으면 대기를 겁니다. |
 | `create_with_seats(train, seats, passengers=None)` | `Reservation` | **고른 좌석으로** 예매. 아래 참고. |
 | `create_transfer(transfer, passengers=None, *, seat_class=GENERAL)` | `tuple[Reservation, Reservation]` | **환승 여정의 두 구간을 한 번에** 예매. 아래 참고. |
-| `seats(rsv_id)` | `tuple[list[Seat], str \| None]` | 좌석 상세와 발매창구 번호. 환승 예약이면 첫 구간의 좌석입니다. |
+| `seats(rsv_id)` | `SeatDetail` | 좌석 상세와 발매창구 번호(`seats`·`wct_no` 이름의 튜플). 환승 예약이면 첫 구간의 좌석입니다. |
 | `pay(reservation, card)` | `None` | 카드 결제. |
 | `cancel(reservation)` | `None` | 예약 취소. 예약번호 단위라, 환승 예약은 어느 구간을 넘겨도 두 구간이 함께 취소됩니다. |
 
@@ -416,7 +418,7 @@ reservation = korail.reservations.create_with_seats(train, picked, [AdultPasseng
 transfer = korail.trains.search_transfers("강릉", "목포")[0]
 first, second = korail.reservations.create_transfer(transfer)
 
-print(first.rsv_id == second.rsv_id)  # True — 예약번호는 하나입니다
+print(first.pnr_no == second.pnr_no)  # True — 예약번호는 하나입니다
 print(first.train.arr_name, first.seats, second.seats)
 ```
 
@@ -585,7 +587,8 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `has_seat()` | `bool` | 특실 또는 일반실 좌석 있음 |
 | `has_special_seat()` · `has_general_seat()` | `bool` | 각각 |
 | `has_waiting_list()` | `bool` | 예약대기 가능 |
-| `duration_minutes` | `int \| None` | 소요 시간(분). 자정을 넘기면 보정됩니다. |
+| `departure` · `arrival` | `datetime \| None` | 출발 · 도착 일시(KST). 날짜나 시각이 비었거나 형식이 틀리면 `None` |
+| `duration_minutes` | `int \| None` | 소요 시간(분). 날짜가 있으면 일시끼리 빼므로 이틀에 걸친 운행도 맞습니다. 날짜가 없으면 시각만으로 잽니다. |
 | `duration_text` | `str \| None` | 사람이 읽는 소요 시간 (`"3시간 30분"`). 1시간 미만이면 `"45분"`. |
 | `summary()` | `str` | 좌석 정보를 뺀 한 줄 요약 |
 
@@ -594,13 +597,28 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `train` | `Train` | **참조** — `reservation.train.dep_name` |
-| `rsv_id` | `str` | 예약번호 (PNR) |
+| `pnr_no` | `str` | 예약번호 (PNR) |
 | `price` | `int` | 결제 예정 금액 |
-| `seat_no_count` | `int` | 좌석 수 |
+| `seat_count` | `int` | 좌석 수 |
 | `seats` | `tuple[Seat, ...]` | 배정 좌석 |
 | `wct_no` | `str \| None` | 발매창구 번호 — 결제에 필요 |
 | `buy_limit_date` · `buy_limit_time` | `str` | 구입기한 |
 | `is_waiting` | `bool` (속성) | 예약대기 여부 |
+| `buy_limit` | `datetime \| None` (속성) | 구입기한 일시(KST). 예약대기면 `None` |
+
+> **`train` 의 날짜.** 예약 목록은 운행일 하나만 줍니다. 여정 상세가 출발·도착 날짜를 주면 그 값을 쓰고,
+> 주지 않으면 운행일을 출발일로 두고 도착 시각이 출발보다 이르면 다음 날을 도착일로 봅니다. 상세 응답의
+> 날짜 필드는 APK 모델에서 확인했고, 실서버 응답에 채워져 오는지는 확인하지 못했습니다
+> (`docs/protocol-evidence-7.0.8.json`의 `reservation_journey_dates`).
+
+### `SeatDetail`
+
+`korail.reservations.seats()` 가 돌려주는 이름 있는 튜플입니다. 풀어 쓰는 기존 코드(`seats, wct_no = …`)는 그대로 동작합니다.
+
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `seats` | `list[Seat]` | 첫 여정의 좌석. 조회 결과가 없으면 빈 목록 |
+| `wct_no` | `str \| None` | 발매창구 번호. 결제에 필요합니다 |
 
 ### `Ticket`
 
@@ -610,16 +628,17 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `seat_no` · `car_no` | `str` | 좌석 · 호차 |
 | `price` | `int` | 결제 금액 |
 | `pnr_no` | `str` | 예약번호 |
-| `sale_info1`–`sale_info4` | `str` | 환불에 필요한 원권 식별자 |
+| `sold_on` | `date \| None` (속성) | 발매일. `sale_date` 를 날짜로 바꾼 값 |
+| `original_wct_no` · `original_refund_sale_date` · `original_sale_seq_no` · `original_refund_pwd` | `str` | 환불에 필요한 원권 식별자 4종 (앱의 `hOrgtkWctNo` · `hOrgtkRetSaleDt` · `hOrgtkSaleSqno` · `hOrgtkRetPwd`) |
 | `ticket_no` | `str` (속성) | 위 4개를 하이픈으로 이은 승차권 번호 |
 
 ### `Seat`
 
 | 필드 | 설명 |
 | --- | --- |
-| `car` · `seat` | 호차 · 좌석번호 |
-| `seat_type` | 일반실 / 특실 |
-| `passenger_type` | 어른 / 어린이 … |
+| `car_no` · `seat_no` | 호차 · 좌석번호 |
+| `seat_class_name` | 일반실 / 특실 |
+| `passenger_type_name` | 어른 / 어린이 … |
 | `price` · `original_price` · `discount` | 결제액 · 정가 · 할인액 |
 | `is_waiting` (속성) | 좌석번호가 비어 있으면 예약대기 자리 |
 
@@ -696,6 +715,7 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `price` | `int` | 운임(원). 어른 한 명 기준입니다 |
 | `group` · `bus_type` | `str` | 운행 그룹 코드 · 종별 코드 (`"980"` / `"98"`) |
 | `dep_run_order` · `arr_run_order` | `str` | 정류장의 운행 순서. 좌석 조회가 구간을 이 값으로 가리킵니다 |
+| `departure` · `arrival` | `datetime \| None` (속성) | 출발 · 도착 일시(KST). 날짜나 시각이 비었거나 형식이 틀리면 `None` |
 | `has_seat()` | `bool` (메서드) | 남은 좌석이 있는지 |
 
 ### `BusStop`
@@ -728,6 +748,7 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `movement` | `str` | 적립인지 사용인지 (`"적립"` · `"사용"`) |
 | `detail` | `str` | 서버가 붙인 설명 (`"마일리지 적립 (열차이용)"` · `"코레일"`) |
 | `amount` | `int` | 증감. 적립은 양수, 사용은 음수 |
+| `day` | `date \| None` (속성) | `date` 를 날짜로 바꾼 값 |
 
 ### `Coupon`
 
@@ -740,6 +761,7 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `description` | `str` | 덧붙는 설명 |
 | `tag` | `str` | 앱이 꼬리표로 보여 주는 짧은 구분 |
 | `valid_from` · `valid_until` | `str` | 쓸 수 있는 기간 `YYYYMMDD`. **승차일** 기준입니다 |
+| `starts_on` · `ends_on` | `date \| None` (속성) | 위 기간을 날짜로 바꾼 값 |
 | `guide` | `str` | 이용 안내 |
 
 쿠폰번호는 번호만 알면 다른 계정에 등록할 수 있는 값이라 `repr` 은 뒤 4자리만
@@ -753,7 +775,7 @@ print([seat.seat_no for seat in seats if seat.is_available])
 | `code` · `name` | 역 코드 (`"0020"`) · 이름 (`"부산"`) |
 | `latitude` · `longitude` | 좌표 (`float \| None`) |
 | `group` | 노선 그룹 코드 — 같은 값이면 같은 노선군 |
-| `major` · `is_major` (속성) | 주요역 노출 순번 · 주요역 여부 |
+| `major` · `is_major` · `major_rank` (속성) | 주요역 노출 순번 · 주요역 여부 · 순번을 정수로 (`int \| None`) |
 | `popup_type` · `popup_message` | 역 선택 시 안내 (`"0"` = 안내 없음) |
 
 ### `Card`
@@ -796,7 +818,7 @@ repr(card)  # Card(number='****5678', installment=0, is_corporate=False)
 > **자격이 필요한 할인은 계정에 자격이 없으면 서버가 거절하지 않고 어른 운임(할인
 > 없음)으로 예약합니다.** 2026-10-16 중증 장애인(`111`)에서 확인했고, 다른 할인 코드와
 > 자격이 있는 계정은 확인하지 않았습니다. 예약 뒤에는 `reservation.seats` 의
-> `passenger_type` 이 기대한 유형인지 확인하세요.
+> `passenger_type_name` 이 기대한 유형인지 확인하세요.
 
 ```python
 Passenger(count=1, discount_type=None, card="", card_no="", card_pw="")
@@ -911,6 +933,23 @@ korail.trains.search("서울", "부산", passengers=[GuideDogPassenger(1)])
 | `SAVE` | `1` | 적립 |
 | `USE` | `2` | 사용 |
 
+
+## 이름 변경 (0.6.0)
+
+옛 이름은 0.6.0 에서도 같은 값을 돌려줍니다. 읽으면 `DeprecationWarning` 이 나가고, 0.7.0 에서 지웁니다.
+
+| 옛 이름 | 새 이름 |
+| --- | --- |
+| `Reservation.rsv_id` | `pnr_no` |
+| `Reservation.seat_no_count` · `Ticket.seat_no_count` | `seat_count` |
+| `Seat.car` · `Seat.seat` | `car_no` · `seat_no` |
+| `Seat.seat_type` · `Seat.passenger_type` | `seat_class_name` · `passenger_type_name` |
+| `Ticket.sale_info1`–`sale_info4` | `original_wct_no` · `original_refund_sale_date` · `original_sale_seq_no` · `original_refund_pwd` |
+| `Korail.logined` (`AsyncKorail` 도 같음) | `is_logged_in` |
+
+생성자를 키워드로 직접 부르던 코드(`Reservation(rsv_id=...)` 등)는 깨집니다. `dataclasses.replace(r, rsv_id=...)` 도 경고 없이 `TypeError` 가 납니다. `from_response` 로
+만든 객체와 조회 결과는 그대로입니다.
+
 ## 예외
 
 ```
@@ -1002,16 +1041,27 @@ korail.trains.search("서울역", "부산")
 ## 기기 프로파일
 
 User-Agent는 프로파일 유무와 무관하게 `korailtalk`입니다. 프로파일은 NetFunnel 대기열의
-Dalvik User-Agent(모델·OS·빌드ID)를 정합니다. DynaPath 토큰에는 기기 신원이 실리지
-않고(서버가 `201` 프리픽스만 검사) `android_id` 는 저장·복원용으로만 쓰입니다.
+Dalvik User-Agent(모델·OS·빌드ID)와, DynaPath 선언 토큰에 실리는 기기 사실(model·release·
+sdk)을 함께 정합니다. `android_id` 는 토큰의 `iid` 로 실리고 저장·복원에도 쓰입니다 —
+두 ID를 함께 저장해 재시작 후에도 같은 기기로 보이게 하세요.
 
 > [!IMPORTANT]
-> **DynaPath 토큰은 네이티브 하드웨어 서명을 재현하지 않습니다.** 이 클라이언트는 `201`
-> 프리픽스 + 임의 영숫자 본문(declaration 경로)만 냅니다. 코레일+가 BlueStacks·Nox 처럼
-> 하드웨어 서명자(StrongBox/TEE)가 없는 환경을 **현재 declaration 토큰으로 통과**시키기
-> 때문에 동작하며, pykorail 도 같은 경로입니다. 서버가 하드웨어 서명 토큰(enroll 챌린지에
-> `beginRequest`→`finishRequest` 로 응답)만 허용하게 되면 이 방식은 무효가 됩니다.
-> 자세한 근거는 `docs/protocol-evidence-7.0.10.json` 에 있습니다.
+> **기본 DynaPath 토큰은 Flow-1 선언 토큰입니다(하드웨어 서명 아님).** 기본 엔진
+> `DeclarationDynaPathEngine` 은 네이티브 `libdp_ffi_android.so` 의 선언 토큰 코덱을 순수
+> 파이썬으로 바이트 단위 재현한 것으로(`.so` 불필요), 평문 봉투를 SHA256-CTR 로 XOR 하고
+> 워드별 커스텀 base62 로 인코딩한 `201…` 문자열입니다. 실제 앱과 op(`es`)·필드 구성이 다를 수
+> 있고 하드웨어 서명(Flow-2, StrongBox/TEE)은 재현하지 못합니다. 그래도 동작하는 것은 서버가
+> 본문을 검사하지 않기 때문입니다 — `seatMovie.ScheduleView` 에서 `201` 프리픽스만 보는 것이
+> 관측됐고, 2026-10-28 승인된 실서버 흐름(로그인→조회→예약→즉시 취소→로그아웃)도 통과했습니다.
+> 서버가 본문이나 하드웨어 서명 토큰(enroll 챌린지에 `beginRequest`→`finishRequest` 로 응답)을
+> 검사하게 되면 무효가 될 수 있습니다. 실기기 `board`·attestation 값이 필요하면
+> `Korail(dynapath_engine=...)` 로 커스텀 엔진을 주입하세요. 자세한 근거는
+> `docs/protocol-evidence-7.0.10.json` 에 있습니다.
+>
+> 이전 버전의 `pykorail.auth.DynaPathMasterEngine`(`201` + 임의 영숫자)은 제거됐습니다. 직접
+> 쓰던 코드는 `pykorail.auth.DeclarationDynaPathEngine` 으로 바꾸세요 — 토큰은
+> `generate_token(op_id=..., device_id=...)` 로 만들고, 클라이언트에 넣으려면
+> `Korail(dynapath_engine=DeclarationDynaPathEngine(...))` 를 씁니다.
 
 ```python
 from pykorail import Korail
